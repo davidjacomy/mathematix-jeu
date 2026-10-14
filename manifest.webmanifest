@@ -1,0 +1,17 @@
+{
+  "name": "MATHÉMATIX — la terreur du calcul mental",
+  "short_name": "Mathématix",
+  "description": "Réviser additions, soustractions, tables et divisions en s'amusant, seul ou à plusieurs.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#244036",
+  "theme_color": "#244036",
+  "icons": [
+    { "src": "img/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icone-masquable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

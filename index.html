@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MATHÉMATIX — La Terreur du Calcul Mental</title>
+<link rel="icon" type="image/png" href="img/maitre-icone.png">
+<!-- L'appli installable du site publié. Son manifeste est ajouté par js/main.js,
+     sur le site publié seulement : ouvert par double-clic, le navigateur refuse
+     de le lire, et le signale en rouge dans la console. -->
+<link rel="apple-touch-icon" href="img/icone-apple-180.png">
+<meta name="theme-color" content="#244036">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Permanent+Marker&family=Gochi+Hand&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Texture d'ardoise + vignette, purement décoratif -->
+<div class="slate-grain" aria-hidden="true"></div>
+<div class="slate-scribbles" id="slate-scribbles" aria-hidden="true"></div>
+<div class="slate-vignette" aria-hidden="true"></div>
+<canvas id="fx-canvas" aria-hidden="true"></canvas>
+<div id="flash" aria-hidden="true"></div>
+
+<main id="stage">
+
+  <!-- ══════════════════ ACCUEIL ══════════════════ -->
+  <!-- Trois blocs, dans l'ordre où on se pose les questions : QUOI réviser,
+       COMMENT jouer, QUI joue. Leurs boutons sont injectés par js/main.js. -->
+  <section id="screen-title" class="screen is-active">
+    <div class="title-block">
+      <div class="title-teacher" id="title-teacher"></div>
+      <div class="title-text">
+        <h1 class="game-title">
+          <span class="gt-line gt-1">MATHÉ</span><span class="gt-line gt-2">MATIX</span>
+        </h1>
+        <p class="subtitle">— la terreur du calcul mental —</p>
+      </div>
+    </div>
+
+    <div class="menu-grid">
+      <section class="panel" id="panel-programme" aria-labelledby="h-programme">
+        <h2 class="panel-title" id="h-programme"><b>1</b> Au programme</h2>
+        <div class="op-tiles" id="op-tiles" role="group" aria-label="Opérations à réviser"></div>
+        <div class="setting-group" id="scope-nombres">
+          <span class="setting-label">Nombres <em class="setting-hint">pour + et −</em></span>
+          <div class="seg" id="seg-nombres"></div>
+        </div>
+        <div class="setting-group" id="scope-tables">
+          <span class="setting-label" id="label-tables">Tables <em class="setting-hint">pour × et ÷</em></span>
+          <div class="table-toggles" id="table-toggles" role="group" aria-labelledby="label-tables"></div>
+        </div>
+        <p class="setting-note" id="programme-note" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" id="panel-partie" aria-labelledby="h-partie">
+        <h2 class="panel-title" id="h-partie"><b>2</b> La partie</h2>
+        <div class="panel-row">
+          <div class="setting-group">
+            <span class="setting-label">Jeu</span>
+            <div class="seg" id="seg-mode"></div>
+          </div>
+          <div class="setting-group" id="group-count">
+            <span class="setting-label">Questions</span>
+            <div class="seg" id="seg-count"></div>
+          </div>
+          <div class="setting-group" id="group-sprint">
+            <span class="setting-label">Durée</span>
+            <div class="seg" id="seg-sprint"></div>
+          </div>
+        </div>
+        <div class="setting-group">
+          <span class="setting-label">Niveau</span>
+          <div class="seg" id="seg-preset"></div>
+        </div>
+        <div class="setting-group">
+          <span class="setting-label">Voix du maître</span>
+          <div class="seg" id="seg-voice"></div>
+        </div>
+        <p class="session-preview" id="session-preview" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" id="panel-classe" aria-labelledby="h-classe">
+        <h2 class="panel-title" id="h-classe"><b>3</b> Les élèves</h2>
+        <div class="join-row" id="join-row" aria-label="Joueurs"><!-- pupitres injectés par JS --></div>
+        <p class="join-hint" id="join-hint" aria-live="polite"></p>
+        <div class="join-actions">
+          <button class="btn-ghost" id="btn-solo">Jouer à la souris ou au toucher</button>
+          <button class="btn-ghost" id="btn-keyboard">Ajouter un joueur au clavier</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Réglages fins : visibles dès qu'on choisit « Sur mesure » -->
+    <div class="custom-panel" id="custom-panel">
+      <div class="custom-row">
+        <div class="setting-group">
+          <span class="setting-label">Temps par question</span>
+          <div class="seg" id="seg-time"></div>
+        </div>
+        <div class="setting-group">
+          <span class="setting-label">Calculs</span>
+          <div class="seg" id="seg-mix"></div>
+        </div>
+        <div class="setting-group">
+          <span class="setting-label">Chausse-trappes</span>
+          <div class="seg" id="seg-traps"></div>
+        </div>
+        <div class="setting-group">
+          <span class="setting-label">Rattrapage des plus lents</span>
+          <div class="seg" id="seg-grace"></div>
+        </div>
+        <div class="setting-group">
+          <span class="setting-label">Trouver le nombre manquant</span>
+          <div class="seg" id="seg-hole"></div>
+        </div>
+        <div class="setting-group">
+          <span class="setting-label">Sens d'écriture</span>
+          <div class="seg" id="seg-sens"></div>
+        </div>
+      </div>
+      <p class="custom-preview" id="custom-preview"></p>
+    </div>
+
+    <button class="btn-start" id="btn-start" disabled>
+      <span>Commencer la partie</span>
+      <small>Start / Entrée</small>
+    </button>
+
+    <!-- Le carnet du maître : n'apparaît que s'il a retenu quelque chose -->
+    <div class="carnet-row" id="carnet-row" hidden>
+      <span class="carnet-note" id="carnet-note"></span>
+      <button class="btn-ghost" id="btn-carnet">Réviser ces calculs</button>
+      <button class="btn-ghost btn-mini" id="btn-carnet-clear" title="Efface les calculs retenus par le maître">Vider le carnet</button>
+    </div>
+
+    <details class="controls-help" id="controls-help">
+      <summary>Comment jouer et quelles touches utiliser ?</summary>
+      <p>Choisis la réponse à la même place que ton bouton : haut, gauche, droite ou bas. Une seule réponse par question. La correction arrive quand tout le monde a répondu ou quand le temps est écoulé.</p>
+      <p class="keys-legend" id="keys-legend"></p>
+    </details>
+  </section>
+
+  <!-- ══════════════════ PARTIE ══════════════════ -->
+  <section id="screen-game" class="screen">
+
+    <header class="hud">
+      <div class="teacher-slot" id="teacher-slot"><!-- visage injecté --></div>
+      <div class="hud-center">
+        <!-- Leçon : « 3 / 15 ». Sprint : le temps qu'il reste avant la cloche. -->
+        <div class="round-counter" id="round-counter"><span id="round-now">1</span><i>/</i><span id="round-max">15</span></div>
+        <div class="trap-banner" id="trap-banner"></div>
+      </div>
+      <div class="hud-right">
+        <div class="chalk-note" id="combo-note"></div>
+        <button class="btn-pause" id="btn-pause" title="Pause (Échap / Start)">Pause <small>Échap / Start</small></button>
+      </div>
+    </header>
+
+    <!-- L'ardoise démarre VIDE : une opération écrite ici serait lue par les
+         enfants pendant l'entrée du maître, et ne serait jamais posée.
+         La hauteur reste réservée en CSS pour que rien ne saute. -->
+    <div class="question-zone">
+      <div class="prompt" id="prompt"></div>
+      <div class="prompt-tail" id="prompt-tail"></div>
+      <div class="timer-rail"><div class="timer-fill" id="timer-fill"></div></div>
+      <div class="round-feedback" id="round-feedback" aria-live="polite"></div>
+    </div>
+
+    <!-- Losange de réponses : la position reproduit les boutons de manette -->
+    <div class="diamond" id="diamond">
+      <button class="ans ans-up"    data-slot="0"><span class="ans-val"></span><em class="ans-btn">△ / Y</em></button>
+      <button class="ans ans-left"  data-slot="1"><span class="ans-val"></span><em class="ans-btn">□ / X</em></button>
+      <button class="ans ans-right" data-slot="2"><span class="ans-val"></span><em class="ans-btn">○ / B</em></button>
+      <button class="ans ans-down"  data-slot="3"><span class="ans-val"></span><em class="ans-btn">✕ / A</em></button>
+    </div>
+
+    <footer class="desks" id="desks"><!-- pupitres injectés --></footer>
+    <div class="pause-veil" id="pause-veil">
+      <div class="pause-panel" id="pause-panel" role="dialog" aria-modal="true" aria-labelledby="pause-title" tabindex="-1">
+        <h2 id="pause-title">On souffle !</h2>
+        <p>Le temps est arrêté. La partie t'attend.</p>
+        <button class="btn-start" id="btn-resume"><span>Reprendre</span><small>Start / Échap</small></button>
+        <button class="btn-ghost" id="btn-quit">Terminer et voir le bulletin</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ RÉSULTATS ══════════════════ -->
+  <section id="screen-end" class="screen">
+    <h2 class="end-title">LE BULLETIN</h2>
+    <p class="end-progress" id="end-progress"></p>
+    <p class="end-record" id="end-record" aria-live="polite"></p>
+    <div class="podium" id="podium"></div>
+    <div class="notebook" id="notebook"></div>
+    <div class="end-actions">
+      <button class="btn-start" id="btn-again"><span>ON REMET ÇA</span><small>Start / Entrée</small></button>
+      <button class="btn-ghost" id="btn-review" hidden>Revoir ces calculs tout de suite</button>
+      <button class="btn-ghost" id="btn-menu">Changer les réglages</button>
+    </div>
+  </section>
+
+  <!-- Gros plan du maître qui déboule -->
+  <div class="teacher-burst" id="teacher-burst" aria-hidden="true">
+    <div class="burst-face" id="burst-face"></div>
+    <div class="burst-bubble" id="burst-bubble"></div>
+  </div>
+
+</main>
+
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/operations.js"></script>
+<script src="js/questions.js"></script>
+<script src="js/traps.js"></script>
+<script src="js/teacher.js"></script>
+<script src="js/input.js"></script>
+<script src="js/memoire.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

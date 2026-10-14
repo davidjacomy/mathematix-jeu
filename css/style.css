@@ -1,0 +1,1246 @@
+/* ══════════════════════════════════════════════════════════════════
+   MATHÉMATIX — feuille de style
+   Direction artistique : ardoise d'école + craie + stylo rouge rageur.
+   Le décor est en CSS ; seuls les portraits du maître sont des images (img/).
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Ardoise */
+  --slate-0: #0b1310;
+  --slate-1: #142320;
+  --slate-2: #1d3028;
+  --slate-edge: #3a2a1c;
+
+  /* Craies */
+  --chalk:      #f2efe0;
+  --chalk-dim:  #a8ad9c;
+  --chalk-warm: #ffd84d;
+  --chalk-cyan: #5fd6c8;
+
+  /* Colère */
+  --rage:      #ff2b45;
+  --rage-deep: #a3081c;
+
+  /* Joueurs */
+  --p1: #ff5a5f;
+  --p2: #4ecdc4;
+  --p3: #ffd23f;
+  --p4: #b98bff;
+
+  --font-arcade: 'Bungee', 'Arial Black', 'Impact', sans-serif;
+  --font-chalk:  'Permanent Marker', 'Comic Sans MS', cursive;
+  --font-hand:   'Gochi Hand', 'Comic Sans MS', cursive;
+
+  --ease-pop: cubic-bezier(.2, 1.6, .35, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+/* Un élément masqué par `hidden` le reste, même s'il porte un `display`. */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  color: var(--chalk);
+  font-family: var(--font-chalk);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+html { background: var(--slate-0); }
+
+/* ─── Fond : ardoise usée ───────────────────────────────────────────
+   Le dégradé est porté par <body> lui-même, pas par un pseudo-élément :
+   un z-index négatif dans body passerait derrière son propre background.
+   Les couches de décor utilisent donc des z-index positifs, sous #stage. */
+body {
+  background:
+    radial-gradient(ellipse 80% 62% at 30% 20%, rgba(94,138,124,.55) 0%, rgba(94,138,124,0) 64%),
+    radial-gradient(ellipse 62% 52% at 80% 78%, rgba(70,110,98,.4) 0%, rgba(70,110,98,0) 60%),
+    linear-gradient(168deg, #48705f 0%, #37594c 46%, #244036 100%);
+  background-attachment: fixed;
+}
+
+/* Traces de craie effacée : de longs arcs pâles, comme un chiffon passé vite */
+.slate-grain {
+  position: fixed; inset: 0; z-index: 1;
+  pointer-events: none;
+  opacity: .1;
+  background-image:
+    repeating-linear-gradient(102deg, transparent 0 38px, rgba(242,239,224,.5) 38px 40px, transparent 40px 96px),
+    repeating-linear-gradient(-84deg, transparent 0 62px, rgba(242,239,224,.35) 62px 63px, transparent 63px 150px);
+  mask-image: radial-gradient(ellipse 80% 60% at 45% 40%, #000 0%, transparent 75%);
+}
+
+/* Le cadre passe au-dessus du jeu : c'est le tableau qui contient tout. */
+.slate-vignette {
+  position: fixed; inset: 0; z-index: 50;
+  pointer-events: none;
+  box-shadow: inset 0 0 11vw 3vw rgba(6,14,11,.62);
+  /* Le cadre en bois du tableau : c'est lui qui dit « salle de classe »
+     avant même qu'on lise un mot. */
+  border: clamp(10px, 1.3vw, 22px) solid #6b4c2c;
+  border-image: linear-gradient(148deg, #9a7043 0%, #5c4026 26%, #ad8050 52%, #4d3520 74%, #8a6238 100%) 1;
+}
+
+/* Rebord de craie : la petite gouttière en bas du tableau */
+.slate-vignette::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: clamp(6px, .9vh, 13px);
+  background: linear-gradient(180deg, #a87c4c, #6b4c2c 60%, #3d2a17);
+  box-shadow: 0 -4px 12px rgba(0,0,0,.5);
+}
+
+/* Opérations laissées au tableau par le maître — décor injecté par JS. */
+.slate-scribbles {
+  position: fixed; inset: 0; z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+.scribble {
+  position: absolute;
+  font-family: var(--font-chalk);
+  color: rgba(242,239,224,.05);
+  white-space: nowrap;
+  line-height: 1;
+  filter: blur(.4px);      /* de la craie, pas du texte : ça ne doit pas se lire */
+}
+.scribble.struck { text-decoration: line-through; text-decoration-thickness: 2px; }
+
+/* Au-dessus du gros plan du maître : la craie doit voler devant lui. */
+#fx-canvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 80;
+}
+
+#flash {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  opacity: 0;
+  background: var(--rage);
+  mix-blend-mode: screen;
+}
+#flash.fire      { animation: flashFire .28s ease-out; }
+#flash.fire-good { animation: flashGood .3s ease-out; }
+@keyframes flashFire { 0% { opacity: .8 } 100% { opacity: 0 } }
+@keyframes flashGood { 0% { opacity: .45; background: var(--chalk-cyan) } 100% { opacity: 0; background: var(--chalk-cyan) } }
+
+/* ─── Secousse d'écran ────────────────────────────────────────────── */
+#stage {
+  position: relative;
+  z-index: 10;
+  height: 100%;
+  will-change: transform;
+}
+#stage.shake-s { animation: shake .22s steps(4) 1; }
+#stage.shake-m { animation: shake .38s steps(6) 2; }
+#stage.shake-l { animation: shakeBig .5s steps(7) 2; }
+@keyframes shake {
+  0%,100% { transform: translate3d(0,0,0) }
+  25% { transform: translate3d(-9px, 4px, 0) rotate(-.5deg) }
+  50% { transform: translate3d(7px, -6px, 0) rotate(.4deg) }
+  75% { transform: translate3d(-5px, -3px, 0) rotate(.3deg) }
+}
+@keyframes shakeBig {
+  0%,100% { transform: translate3d(0,0,0) scale(1) }
+  20% { transform: translate3d(-22px, 11px, 0) rotate(-1.4deg) scale(1.012) }
+  45% { transform: translate3d(18px, -16px, 0) rotate(1.2deg) scale(1.02) }
+  70% { transform: translate3d(-14px, -8px, 0) rotate(.8deg) scale(1.008) }
+}
+
+/* ─── Écrans ──────────────────────────────────────────────────────── */
+.screen {
+  position: absolute; inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(14px, 2.2vh, 30px) clamp(18px, 3vw, 54px);
+}
+.screen.is-active { display: flex; }
+
+/* ══════════════════ ACCUEIL ══════════════════ */
+/* « safe center » centre tant que ça tient, puis bascule en alignement
+   haut au lieu de rogner le titre : sans lui, un accueil plus haut que
+   l'écran coupait le haut de la page sans moyen d'y accéder. */
+#screen-title {
+  justify-content: safe center;
+  gap: clamp(8px, 1.5vh, 18px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+#screen-title > * { flex: none; }
+
+/* Le panneau des réglages fins prend de la place : le titre s'efface un
+   peu pour lui, plutôt que de pousser le bouton de départ hors de l'écran. */
+#screen-title:has(.custom-panel.on) { gap: clamp(5px, .9vh, 12px); }
+#screen-title:has(.custom-panel.on) .game-title { font-size: clamp(28px, 4.4vw, 62px); }
+#screen-title:has(.custom-panel.on) .title-teacher { width: clamp(46px, 5.6vw, 84px); }
+#screen-title:has(.custom-panel.on) .subtitle { display: none; }
+#screen-title:has(.custom-panel.on) .btn-start { font-size: clamp(17px, 2.3vw, 30px); padding-block: .32em .38em; }
+
+.title-block {
+  display: flex; align-items: center; justify-content: center;
+  gap: clamp(6px, 1.6vw, 30px);
+  position: relative;
+}
+.title-text { text-align: center; }
+.title-teacher {
+  width: clamp(58px, 7.4vw, 124px);
+  flex: none;
+  transform-origin: 50% 90%;
+  animation: titleIn .7s .2s var(--ease-pop) both;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.6));
+}
+
+.game-title {
+  font-family: var(--font-arcade);
+  font-size: clamp(38px, 6vw, 92px);
+  line-height: .86;
+  letter-spacing: .01em;
+  display: flex; justify-content: center; flex-wrap: wrap;
+}
+.gt-line { display: inline-block; }
+.gt-1 {
+  color: var(--chalk);
+  text-shadow: 0 0 26px rgba(242,239,224,.28), 4px 5px 0 rgba(0,0,0,.55);
+  transform: rotate(-2.4deg);
+  animation: titleIn .7s var(--ease-pop) both;
+}
+.gt-2 {
+  color: var(--rage);
+  -webkit-text-stroke: 2px rgba(0,0,0,.35);
+  text-shadow: 0 0 32px rgba(255,43,69,.6), 4px 5px 0 rgba(0,0,0,.5);
+  transform: rotate(1.8deg) translateY(6px);
+  animation: titleIn .7s .09s var(--ease-pop) both;
+}
+@keyframes titleIn {
+  from { opacity: 0; transform: translateY(-40px) rotate(-14deg) scale(.7) }
+}
+
+.subtitle {
+  font-family: var(--font-hand);
+  font-size: clamp(14px, 1.8vw, 26px);
+  color: var(--chalk-dim);
+  letter-spacing: .06em;
+  margin-top: .4em;
+  animation: fadeUp .6s .35s both;
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px) } }
+
+/* ─── Les trois blocs : quoi réviser, comment jouer, qui joue ─────── */
+.menu-grid {
+  width: min(100%, 1560px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(8px, 1.1vw, 18px);
+  align-items: stretch;
+  animation: fadeUp .6s .4s both;
+}
+.panel {
+  display: flex; flex-direction: column; align-items: center;
+  gap: clamp(7px, 1.2vh, 14px);
+  min-width: 0;
+  padding: clamp(9px, 1.4vh, 16px) clamp(10px, 1.2vw, 20px) clamp(10px, 1.6vh, 18px);
+  border: 2px solid rgba(242,239,224,.16);
+  border-radius: 16px;
+  background: rgba(6,14,11,.24);
+}
+.panel-title {
+  align-self: stretch;
+  display: flex; align-items: center; gap: .55em;
+  font-family: var(--font-chalk);
+  font-weight: 400;
+  font-size: clamp(15px, 1.45vw, 22px);
+  letter-spacing: .03em;
+  color: var(--chalk);
+  padding-bottom: .4em;
+  border-bottom: 2px dashed rgba(242,239,224,.14);
+}
+/* Le numéro dit l'ordre des questions, sans une ligne d'explication. */
+.panel-title b {
+  flex: none;
+  display: grid; place-items: center;
+  width: 1.65em; aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--chalk-warm);
+  color: var(--slate-0);
+  font-family: var(--font-arcade);
+  font-size: .76em;
+  font-weight: 400;
+}
+.panel-row {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: clamp(7px, 1.2vh, 14px) clamp(10px, 1.3vw, 22px);
+}
+
+/* Les opérations : quatre tuiles qu'on allume ou qu'on éteint. Chacune a
+   sa craie, pour qu'on voie d'un coup d'œil ce qui est au programme. */
+.op-tiles {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(5px, .7vw, 12px);
+}
+.op-tile {
+  --oc: var(--chalk);
+  display: grid; justify-items: center; align-content: center; gap: 3px;
+  min-width: 0;
+  padding: clamp(6px, 1vh, 12px) 3px clamp(5px, .8vh, 10px);
+  border: 3px dashed rgba(242,239,224,.24);
+  border-radius: 14px;
+  background: rgba(0,0,0,.16);
+  color: var(--chalk-dim);
+  cursor: pointer;
+  transition: transform .18s var(--ease-pop), border-color .18s, background .18s, box-shadow .18s;
+}
+.op-tile.op-add { --oc: var(--chalk-cyan); }
+.op-tile.op-sub { --oc: var(--chalk-warm); }
+.op-tile.op-mul { --oc: #ff6b7d; }
+.op-tile.op-div { --oc: var(--p4); }
+.op-sign {
+  font-family: var(--font-arcade);
+  font-size: clamp(28px, 3.3vw, 54px);
+  line-height: 1;
+  color: rgba(242,239,224,.32);
+  transition: color .18s, text-shadow .18s;
+}
+.op-name {
+  max-width: 100%;
+  font-family: var(--font-hand);
+  font-size: clamp(10px, .98vw, 16px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.op-tile:hover { border-color: var(--chalk); transform: translateY(-2px); }
+.op-tile.on {
+  border-style: solid;
+  border-color: var(--oc);
+  background: color-mix(in srgb, var(--oc) 15%, transparent);
+  color: var(--chalk);
+  box-shadow: 0 0 22px -8px var(--oc), inset 0 0 18px -9px var(--oc);
+}
+.op-tile.on .op-sign { color: var(--oc); text-shadow: 0 0 16px color-mix(in srgb, var(--oc) 55%, transparent); }
+
+/* Pupitres d'inscription */
+.join-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(5px, .6vw, 10px);
+}
+.slot {
+  min-width: 0;
+  padding: clamp(6px, 1vh, 12px) 3px;
+  border: 3px dashed rgba(242,239,224,.22);
+  border-radius: 14px;
+  text-align: center;
+  transition: all .35s var(--ease-pop);
+  position: relative;
+  background: rgba(0,0,0,.16);
+}
+.slot .slot-num {
+  font-family: var(--font-arcade);
+  font-size: clamp(20px, 2.3vw, 34px);
+  color: rgba(242,239,224,.3);
+  line-height: 1;
+}
+.slot .slot-state {
+  font-family: var(--font-hand);
+  font-size: clamp(11px, 1.1vw, 16px);
+  color: var(--chalk-dim);
+  margin-top: .3em;
+  min-height: 1.4em;
+  display: block;
+}
+.slot .slot-dev {
+  font-family: var(--font-hand);
+  font-size: clamp(9px, .85vw, 12px);
+  line-height: 1.2;
+  color: rgba(242,239,224,.5);
+  display: block;
+}
+.slot.joined {
+  border-style: solid;
+  border-color: var(--pc);
+  background: color-mix(in srgb, var(--pc) 16%, transparent);
+  box-shadow: 0 0 26px -6px var(--pc), inset 0 0 20px -8px var(--pc);
+  transform: translateY(-3px) rotate(var(--tilt, -1deg));
+  animation: slotPop .45s var(--ease-pop);
+}
+.slot.joined .slot-num { color: var(--pc); text-shadow: 0 0 16px var(--pc); }
+.slot.joined .slot-state { color: var(--chalk); }
+@keyframes slotPop {
+  0% { transform: scale(.82) translateY(0) }
+  60% { transform: scale(1.1) translateY(-9px) }
+}
+
+.join-hint {
+  font-family: var(--font-hand);
+  font-size: clamp(13px, 1.2vw, 18px);
+  line-height: 1.3;
+  color: var(--chalk-dim);
+  text-align: center;
+}
+.join-hint b { color: var(--chalk-warm); }
+
+/* Réglages */
+.setting-group { text-align: center; min-width: 0; }
+.setting-label {
+  display: block;
+  font-family: var(--font-hand);
+  font-size: clamp(14px, 1.2vw, 18px);
+  letter-spacing: .02em;
+  color: var(--chalk-dim);
+  margin-bottom: .4em;
+}
+.setting-hint {
+  font-style: normal;
+  letter-spacing: .02em;
+  opacity: .62;
+}
+.setting-note {
+  font-family: var(--font-hand);
+  font-size: clamp(12px, 1.05vw, 15px);
+  color: var(--chalk-cyan);
+  text-align: center;
+}
+
+.table-toggles, .seg { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+
+/* ─── Panneau des réglages fins ───────────────────────────────────── */
+.custom-panel {
+  display: none;
+  width: min(100%, 1560px);
+  padding: clamp(8px, 1.4vh, 16px) clamp(12px, 2vw, 26px) clamp(6px, 1vh, 12px);
+  border: 2px dashed rgba(242,239,224,.22);
+  border-radius: 14px;
+  background: rgba(0,0,0,.24);
+  animation: fadeUp .35s var(--ease-pop) both;
+}
+.custom-panel.on { display: block; }
+.custom-row {
+  display: flex; flex-wrap: wrap;
+  gap: clamp(6px, 1.1vw, 18px) clamp(8px, 1.6vw, 26px);
+  justify-content: center; align-items: flex-start;
+}
+/* Réglages fins : boutons plus serrés, ils sont nombreux et c'est un
+   écran de parent, pas un écran de jeu. */
+.custom-panel .chip { min-height: 36px; font-size: 12px; padding: .45em .7em; }
+.custom-panel .setting-label { margin-bottom: .3em; font-size: 15px; }
+.custom-preview {
+  margin-top: .7em;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--chalk-dim);
+  line-height: 1.6;
+}
+
+/* Le préréglage « sur mesure » se distingue des niveaux tout faits. */
+.chip.custom.on {
+  background: var(--chalk-warm);
+  border-color: var(--chalk-warm);
+  box-shadow: 0 0 16px -3px var(--chalk-warm);
+}
+
+.chip {
+  font-family: var(--font-arcade);
+  font-size: clamp(11px, 1.05vw, 16px);
+  padding: .42em .62em;
+  min-width: 2.1em;
+  border: 2px solid rgba(242,239,224,.28);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--chalk-dim);
+  cursor: pointer;
+  transition: all .16s var(--ease-pop);
+}
+.chip:hover { border-color: var(--chalk); color: var(--chalk); transform: translateY(-2px); }
+.chip.on {
+  background: var(--chalk);
+  color: var(--slate-0);
+  border-color: var(--chalk);
+  box-shadow: 0 0 16px -3px rgba(242,239,224,.55);
+}
+.chip.wide { min-width: auto; padding-inline: .8em; }
+
+/* Les cinq niveaux portent des mots longs : ils doivent tenir en deux
+   rangées au plus dans un bloc étroit. */
+#seg-preset .chip { font-size: clamp(10px, .92vw, 14px); padding-inline: .66em; }
+
+.btn-start {
+  font-family: var(--font-arcade);
+  font-size: clamp(19px, 2.7vw, 38px);
+  padding: .42em 1.5em .5em;
+  border: 0; border-radius: 16px;
+  background: linear-gradient(178deg, var(--rage) 0%, var(--rage-deep) 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 0 #5c0410, 0 14px 34px -8px rgba(255,43,69,.7);
+  transition: transform .12s ease, box-shadow .12s ease, filter .2s;
+  animation: fadeUp .4s both;
+  line-height: 1.05;
+  text-align: center;
+}
+.btn-start small {
+  display: block;
+  font-family: var(--font-hand);
+  font-size: .34em;
+  opacity: .8;
+  letter-spacing: .12em;
+}
+.btn-start:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 11px 0 #5c0410, 0 20px 40px -8px rgba(255,43,69,.8); }
+.btn-start:active:not(:disabled) { transform: translateY(5px); box-shadow: 0 3px 0 #5c0410; }
+.btn-start:disabled { filter: grayscale(.85) brightness(.55); cursor: not-allowed; animation: fadeUp .6s .65s both; }
+
+.btn-ghost {
+  font-family: var(--font-hand);
+  font-size: clamp(13px, 1.5vw, 19px);
+  background: transparent;
+  border: 2px solid rgba(242,239,224,.3);
+  color: var(--chalk-dim);
+  padding: .5em 1.3em;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all .18s;
+}
+.btn-ghost:hover:not(:disabled) { color: var(--chalk); border-color: var(--chalk); }
+.btn-ghost:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Le carnet du maître : ce qu'il a retenu des parties précédentes. */
+.carnet-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 8px 14px;
+  font-family: system-ui, sans-serif;
+  font-size: clamp(13px, 1.1vw, 16px);
+  color: var(--chalk-warm);
+  text-align: center;
+}
+.carnet-row .btn-ghost { font-family: system-ui, sans-serif; font-size: 15px; min-height: 38px; color: var(--chalk); padding: .35em 1em; }
+.carnet-row .btn-mini { font-size: 13px; color: var(--chalk-dim); border-color: rgba(242,239,224,.18); }
+
+/* ══════════════════ PARTIE ══════════════════ */
+/* padding-bottom généreux : le cadre en bois et son rebord de craie
+   mordent sur l'écran, et les pupitres passaient dessous. */
+#screen-game {
+  justify-content: space-between;
+  gap: 1vh;
+  padding-bottom: clamp(26px, 3.6vh, 46px);
+}
+
+.hud {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+/* Le visage fixe la hauteur du bandeau : trop grand, il la prend au losange. */
+.teacher-slot { justify-self: start; width: clamp(52px, 6.2vw, 96px); }
+.hud-center { text-align: center; }
+.hud-right { justify-self: end; text-align: right; }
+
+.round-counter {
+  font-family: var(--font-arcade);
+  font-size: clamp(15px, 2vw, 27px);
+  color: var(--chalk-dim);
+  letter-spacing: .05em;
+}
+.round-counter i { opacity: .4; margin: 0 .18em; font-style: normal; }
+.round-counter span:first-child { color: var(--chalk); }
+/* Sprint : il n'y a pas de « 3 / 15 », seulement le temps avant la cloche. */
+.round-counter.sprint i, .round-counter.sprint #round-max { display: none; }
+.round-counter.sprint::before {
+  content: '';
+  display: inline-block;
+  width: .95em; height: 1.7em;
+  margin-right: .35em;
+  vertical-align: middle;
+  background: url('../img/cloche.webp') center / contain no-repeat;
+}
+.round-counter.sprint #round-now { color: var(--chalk-warm); font-size: 1.25em; }
+
+.trap-banner {
+  font-family: var(--font-arcade);
+  font-size: clamp(13px, 1.9vw, 26px);
+  min-height: 1.5em;
+  letter-spacing: .06em;
+  color: var(--chalk-warm);
+  text-shadow: 0 0 18px currentColor;
+  opacity: 0;
+}
+.trap-banner.show { animation: trapIn .5s var(--ease-pop) both, trapWobble 1.1s .5s infinite; }
+@keyframes trapIn { from { opacity: 0; transform: scale(.3) rotate(-12deg) } to { opacity: 1; transform: none } }
+@keyframes trapWobble { 50% { transform: rotate(-1.6deg) scale(1.03) } }
+
+.chalk-note {
+  font-family: var(--font-chalk);
+  font-size: clamp(13px, 1.7vw, 23px);
+  color: var(--chalk-cyan);
+  min-height: 1.4em;
+  opacity: 0;
+  transition: opacity .3s;
+}
+.chalk-note.show { opacity: 1; animation: notePop .4s var(--ease-pop); }
+@keyframes notePop { from { transform: scale(.5) rotate(8deg) } }
+
+/* ─── L'énoncé ────────────────────────────────────────────────────── */
+.question-zone { text-align: center; width: 100%; }
+
+.prompt {
+  font-family: var(--font-arcade);
+  /* plafonné aussi en hauteur d'écran, sinon l'énoncé mange le losange */
+  font-size: min(clamp(40px, 10vw, 140px), 17vh);
+  line-height: .95;
+  /* L'ardoise est vide entre deux manches : sans hauteur réservée, tout
+     l'écran remonterait puis redescendrait à chaque question. */
+  min-height: .95em;
+  text-wrap: balance;
+  letter-spacing: .02em;
+  color: var(--chalk);
+  text-shadow: 0 0 40px rgba(242,239,224,.22), 3px 4px 0 rgba(0,0,0,.5);
+}
+/* Une consigne en mots n'a pas besoin de la taille d'une opération : deux
+   gros chiffres se lisent d'un coup d'œil, une phrase se lit. */
+.prompt.is-text { font-size: min(clamp(26px, 5vw, 62px), 9vh); }
+
+.prompt.enter { animation: promptIn .42s var(--ease-pop) both; }
+@keyframes promptIn { from { opacity: 0; transform: scale(.55) rotate(-5deg) } }
+.prompt.hidden-mem { color: transparent; text-shadow: none; position: relative; }
+.prompt.hidden-mem::after {
+  content: '? ? ?';
+  position: absolute; inset: 0;
+  color: rgba(242,239,224,.16);
+  display: grid; place-items: center;
+}
+
+.prompt-tail {
+  font-family: var(--font-hand);
+  font-size: clamp(18px, 2.6vw, 38px);
+  color: var(--chalk-warm);
+  margin-top: -.1em;
+  min-height: 1.1em;
+}
+
+/* Nombre manquant, signe effacé : la seconde ligne porte le résultat, sans
+   lequel la question n'a pas de réponse. Elle se lit comme un nombre. */
+.prompt-tail.fort {
+  font-family: var(--font-arcade);
+  font-size: min(clamp(24px, 4.4vw, 62px), 8vh);
+  line-height: 1.05;
+  margin-top: .05em;
+  text-shadow: 3px 4px 0 rgba(0,0,0,.45);
+}
+/* La première ligne lui cède de la place : à hauteur égale, sinon le
+   losange se tasse et les cases se chevauchent. */
+.prompt:has(+ .prompt-tail.fort) { font-size: min(clamp(34px, 8.2vw, 116px), 14vh); }
+
+.timer-rail {
+  width: min(78%, 900px);
+  height: clamp(10px, 1.5vh, 18px);
+  margin: clamp(8px, 1.4vh, 18px) auto 0;
+  border: 2px solid rgba(242,239,224,.3);
+  border-radius: 99px;
+  overflow: hidden;
+  background: rgba(0,0,0,.35);
+  position: relative;
+}
+.timer-fill {
+  height: 100%; width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--rage) 0%, var(--chalk-warm) 55%, var(--chalk-cyan) 100%);
+  box-shadow: 0 0 14px rgba(255,216,77,.6);
+}
+.timer-rail.panic { animation: panicPulse .28s infinite alternate; border-color: var(--rage); }
+@keyframes panicPulse { to { box-shadow: 0 0 22px 3px var(--rage); transform: scaleY(1.22) } }
+
+/* Quelqu'un s'est prononcé : le chrono devient une brève fenêtre de
+   rattrapage. Craie BLANCHE et non cyan : le cyan est la couleur de la
+   bonne réponse dans tout le jeu, et le rail se colorait dès qu'un joueur
+   avait juste — soit exactement l'indice qu'on cherche à ne pas donner. */
+.timer-rail.grace { border-color: var(--chalk); animation: gracePulse .4s infinite alternate; }
+.timer-rail.grace .timer-fill { background: var(--chalk); box-shadow: 0 0 16px var(--chalk); }
+@keyframes gracePulse { to { box-shadow: 0 0 20px 2px var(--chalk) } }
+
+/* ─── Losange de réponses ─────────────────────────────────────────── */
+/* Le losange est dimensionné par sa HAUTEUR, pas sa largeur : sinon, sur
+   un écran 16:9, il pousse les pupitres des joueurs hors de l'écran — et
+   les scores sont précisément ce que les enfants regardent. */
+.diamond {
+  position: relative;
+  height: clamp(210px, 37vh, 360px);
+  aspect-ratio: 1.55 / 1;
+  width: auto;
+  max-width: 94vw;
+  transition: transform .45s var(--ease-pop);
+}
+
+/* Les cases se dimensionnent en PARTS du losange, largeur et hauteur :
+   trois rangées de 31 % ne peuvent pas se chevaucher, même quand un écran
+   bas tasse le losange. Une largeur minimale en pixels le faisait.
+
+   Chaque case est une ardoise d'écolier. L'image est découpée en neuf
+   (`border-image`) : les coins et le cadre de bois gardent leur dessin, seul
+   le milieu s'étire — la même image habille donc une case de nombre comme la
+   case large d'une opération entière. */
+.ans {
+  --cadre: clamp(8px, .95vw, 16px);
+  position: absolute;
+  width: 34%;
+  height: 31%;
+  padding: 0 4px;
+  border: var(--cadre) solid transparent;
+  border-image: url('../img/ardoise.webp') 52 fill stretch;
+  background: none;
+  color: var(--chalk);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: transform .18s var(--ease-pop), filter .2s;
+  filter: drop-shadow(0 5px 6px rgba(0,0,0,.4));
+}
+.ans-up    { top: 0;    left: 50%; transform: translateX(-50%); }
+.ans-left  { top: 50%;  left: 2%;  transform: translateY(-50%); }
+.ans-right { top: 50%;  right: 2%; transform: translateY(-50%); }
+.ans-down  { bottom: 0; left: 50%; transform: translateX(-50%); }
+
+.ans-val {
+  font-family: var(--font-arcade);
+  font-size: clamp(24px, 3.7vw, 54px);
+  line-height: 1;
+  letter-spacing: .01em;
+  text-shadow: 0 0 14px rgba(242,239,224,.18);
+  /* laisse sa place au rappel du bouton, posé au bas de l'ardoise */
+  transform: translateY(-9%);
+}
+/* Le bouton de manette, écrit petit au bas de l'ardoise : la case entière
+   reste au nombre. */
+.ans-btn {
+  position: absolute; left: 0; right: 0; bottom: 1px;
+  text-align: center;
+  font-family: var(--font-arcade);
+  font-size: clamp(9px, .95vw, 14px);
+  font-style: normal;
+  color: rgba(242,239,224,.62);
+  letter-spacing: .1em;
+  line-height: 1.15;
+}
+/* Format « trouve l'intrus » : chaque case porte une opération entière,
+   donc il faut des cases plus larges et un texte plus petit. */
+.ans.op-mode .ans-val { font-size: clamp(13px, 2vw, 27px); }
+/* Format « signe effacé » : un seul caractère par case, autant le montrer. */
+.ans.sign-mode .ans-val { font-size: clamp(32px, 4.6vw, 64px); line-height: .8; }
+.diamond.wide-ans .ans { width: 42%; height: 27%; }
+
+.ans:hover { filter: drop-shadow(0 5px 6px rgba(0,0,0,.4)) brightness(1.18); }
+.ans-up:hover    { transform: translateX(-50%) scale(1.05); }
+.ans-left:hover  { transform: translateY(-50%) scale(1.05); }
+.ans-right:hover { transform: translateY(-50%) scale(1.05); }
+.ans-down:hover  { transform: translateX(-50%) scale(1.05); }
+
+/* Halo d'un joueur qui vient de buzzer */
+.ans.hit { animation: ansHit .3s var(--ease-pop); }
+@keyframes ansHit { 50% { filter: brightness(1.8) } }
+
+/* La révélation : la bonne ardoise s'illumine, les autres s'éteignent et
+   reçoivent leur croix. */
+.ans.reveal-good {
+  filter: drop-shadow(0 0 16px var(--chalk-cyan)) drop-shadow(0 0 5px var(--chalk-cyan)) brightness(1.2);
+  animation: goodPop .55s var(--ease-pop);
+}
+.ans.reveal-good .ans-val { color: var(--chalk-cyan); text-shadow: 0 0 16px rgba(95,214,200,.7); }
+@keyframes goodPop { 40% { filter: drop-shadow(0 0 22px var(--chalk-cyan)) brightness(1.7) } }
+/* Un voile sombre plutôt qu'un filtre gris : un filtre posé sur l'ardoise
+   grisait aussi sa croix, qui doit rester rouge. */
+.ans.reveal-bad::before {
+  content: '';
+  position: absolute; inset: calc(-1 * var(--cadre));
+  border-radius: 9% / 15%;
+  background: rgba(8, 14, 12, .66);
+}
+.ans.reveal-bad::after {
+  content: '';
+  position: absolute; inset: 4%;
+  background:
+    linear-gradient(46deg, transparent 46%, var(--rage) 46% 54%, transparent 54%),
+    linear-gradient(-46deg, transparent 46%, var(--rage) 46% 54%, transparent 54%);
+  opacity: .92;
+  animation: crossIn .25s ease-out;
+}
+@keyframes crossIn { from { transform: scale(.4) rotate(-30deg); opacity: 0 } }
+
+.ans.locked { pointer-events: none; }
+
+/* Pastilles des joueurs qui ont buzzé sur cette réponse */
+.buzzers { position: absolute; top: calc(-1 * var(--cadre) - 9px); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; }
+.buzz-dot {
+  width: clamp(14px, 1.8vw, 24px); aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--pc);
+  border: 2px solid rgba(0,0,0,.5);
+  box-shadow: 0 0 14px var(--pc);
+  animation: dotIn .28s var(--ease-pop);
+}
+@keyframes dotIn { from { transform: scale(0) } 70% { transform: scale(1.4) } }
+
+/* ─── Pupitres en bas ─────────────────────────────────────────────── */
+.desks {
+  width: 100%;
+  display: flex; gap: clamp(6px, 1.1vw, 16px);
+  justify-content: center;
+}
+.desk {
+  flex: 1 1 0; max-width: 280px;
+  /* La planche a déjà les proportions d'un pupitre : elle s'étire d'un bloc.
+     Découpée en neuf comme l'ardoise, ses vis s'allongeaient en ovales. */
+  padding: clamp(8px, 1.3vh, 13px) clamp(22px, 2.3vw, 34px);
+  background: url('../img/planche.webp') center / 100% 100% no-repeat;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  transition: transform .25s var(--ease-pop), filter .25s;
+  position: relative;
+  filter: drop-shadow(0 4px 0 var(--pc)) drop-shadow(0 6px 5px rgba(0,0,0,.35));
+  /* pas d'overflow:hidden : les points gagnés s'envolent hors du pupitre */
+}
+.desk-id { min-width: 0; }
+.desk-name {
+  font-family: var(--font-chalk);
+  font-size: clamp(11px, 1.25vw, 18px);
+  color: #3b2714;
+  white-space: nowrap;
+  display: block;
+}
+/* La pastille dit à qui est le pupitre — la même que sur les ardoises. */
+.desk-name::before {
+  content: '';
+  display: inline-block;
+  width: .72em; height: .72em;
+  margin-right: .4em;
+  border-radius: 50%;
+  background: var(--pc);
+  border: 2px solid #3b2714;
+  vertical-align: -.04em;
+}
+/* Rappel des touches : en début de partie, un enfant ne sait pas encore
+   quel pupitre est le sien. */
+.desk-keys {
+  display: block;
+  font-family: var(--font-arcade);
+  font-size: clamp(7px, .78vw, 11px);
+  color: rgba(59,39,20,.62);
+  letter-spacing: .05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.desk-score {
+  font-family: var(--font-arcade);
+  font-size: clamp(15px, 2vw, 30px);
+  line-height: 1;
+  color: #3b2714;
+}
+.desk.gain { animation: deskGain .5s var(--ease-pop); }
+@keyframes deskGain {
+  0% { transform: none }
+  35% { transform: translateY(-11px) scale(1.07) }
+}
+.desk.stunned {
+  filter: drop-shadow(0 4px 0 var(--pc));
+  transform: translateY(7px) rotate(-1.4deg);
+}
+.desk.stunned::after {
+  content: 'AU PIQUET';
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  border-radius: 14px / 40%;
+  font-family: var(--font-arcade);
+  font-size: clamp(9px, 1.15vw, 15px);
+  color: #ff5c70;
+  background: rgba(22, 12, 6, .78);
+  letter-spacing: .1em;
+}
+.desk .streak {
+  position: absolute; top: 2px; right: 5px;
+  font-family: var(--font-hand);
+  font-size: clamp(8px, .95vw, 12px);
+  color: #8a2a12;
+  opacity: .95;
+}
+.desk .float-pts {
+  position: absolute; top: 50%; left: 50%;
+  font-family: var(--font-arcade);
+  font-size: clamp(14px, 1.8vw, 26px);
+  pointer-events: none;
+  animation: floatPts .9s ease-out forwards;
+}
+@keyframes floatPts {
+  0% { transform: translate(-50%, -50%) scale(.6); opacity: 0 }
+  25% { transform: translate(-50%, -140%) scale(1.15); opacity: 1 }
+  100% { transform: translate(-50%, -320%) scale(.9); opacity: 0 }
+}
+
+/* ══════════════════ LE MAÎTRE ══════════════════ */
+/* Cinq portraits empilés sur la même toile, un par humeur : la classe posée
+   sur `.teacher` par le JS dit lequel se montre. Tous restent chargés et en
+   place ; un fondu très court évite tout clignotement au changement. */
+.teacher {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 384 / 485;       /* la toile commune des portraits */
+}
+.teacher .t {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity .1s linear;
+  -webkit-user-drag: none;
+}
+.teacher .t-neutral { opacity: 1; }
+.teacher.rage .t-neutral, .teacher.pleased .t-neutral,
+.teacher.sly .t-neutral, .teacher.dead .t-neutral { opacity: 0; }
+.teacher.rage .t-rage, .teacher.pleased .t-pleased,
+.teacher.sly .t-sly, .teacher.dead .t-dead { opacity: 1; }
+
+/* La colère le fait trembler tout entier. */
+.teacher.rage { animation: teacherRage .16s infinite alternate; }
+@keyframes teacherRage { to { transform: translate(-3px, 2px) rotate(-1.5deg) scale(1.03) } }
+
+/* ─── Gros plan qui déboule ───────────────────────────────────────── */
+.teacher-burst {
+  position: fixed; inset: 0;
+  z-index: 70;
+  display: none;
+  place-items: end start;
+  pointer-events: none;
+}
+.teacher-burst.on { display: grid; }
+/* Voile volontairement léger et décalé vers le bas-gauche : la correction
+   affichée au centre du losange doit rester lisible pendant que le maître
+   hurle. C'est le moment où l'enfant apprend. */
+.teacher-burst::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 65% 60% at 20% 78%, rgba(0,0,0,.6) 0%, rgba(0,0,0,.28) 55%, rgba(0,0,0,.1) 100%);
+  animation: dimIn .18s both;
+}
+@keyframes dimIn { from { opacity: 0 } }
+
+/* Rayons façon manga, cantonnés au coin du maître.
+   Leur couleur suit l'humeur : des rayons rouges de colère derrière un
+   maître souriant, ça envoyait un signal contradictoire. */
+.teacher-burst::after {
+  content: '';
+  position: absolute;
+  left: -30vw; bottom: -40vh; width: 90vw; height: 90vh;
+  background: repeating-conic-gradient(from 0deg, var(--ray, rgba(255,43,69,.34)) 0deg 6deg, transparent 6deg 15deg);
+  animation: rays 9s linear infinite;
+  mask-image: radial-gradient(circle at 62% 38%, #000 12%, transparent 52%);
+}
+.teacher-burst.mood-pleased { --ray: rgba(94,214,200,.32); }
+.teacher-burst.mood-sly     { --ray: rgba(255,210,63,.3); }
+.teacher-burst.mood-dead    { --ray: rgba(200,196,178,.22); }
+@keyframes rays { to { transform: rotate(360deg) } }
+
+/* Le maître surgit de derrière son bureau, en bas à gauche. */
+.burst-face {
+  width: min(38vh, 30vw);
+  min-width: 150px;
+  position: relative;
+  z-index: 2;
+  margin: 0 0 clamp(-14px, -1.5vh, -4px) clamp(6px, 2.5vw, 54px);
+  animation: burstIn .3s var(--ease-pop) both;
+  filter: drop-shadow(0 18px 40px rgba(0,0,0,.75));
+}
+@keyframes burstIn { from { transform: translateY(45%) scale(.72) rotate(-9deg); opacity: 0 } }
+
+.burst-bubble {
+  position: absolute;
+  left: clamp(140px, 24vw, 380px);
+  bottom: clamp(90px, 16vh, 190px);
+  transform: rotate(-2deg);
+  max-width: min(62vw, 700px);
+  z-index: 3;
+  padding: clamp(12px, 2vh, 26px) clamp(16px, 2.3vw, 34px);
+  background: var(--chalk);
+  color: var(--slate-0);
+  font-family: var(--font-arcade);
+  font-size: clamp(15px, 2.5vw, 38px);
+  line-height: 1.14;
+  border-radius: 22px;
+  box-shadow: 0 12px 0 rgba(0,0,0,.45), 0 0 60px -10px rgba(242,239,224,.5);
+  animation: bubbleIn .34s .07s var(--ease-pop) both;
+}
+/* Queue de bulle orientée vers le maître, en bas à gauche */
+.burst-bubble::after {
+  content: '';
+  position: absolute; left: 24px; bottom: -24px;
+  border: 18px solid transparent;
+  border-top-color: var(--chalk);
+  border-bottom: 0;
+}
+@keyframes bubbleIn { from { transform: scale(.35) rotate(9deg); opacity: 0 } }
+.burst-bubble.good { background: var(--chalk-cyan); }
+.burst-bubble.trap { background: var(--chalk-warm); }
+
+/* ══════════════════ RÉSULTATS ══════════════════ */
+#screen-end { justify-content: safe center; gap: clamp(12px, 2.4vh, 30px); overflow-y: auto; overflow-x: hidden; }
+#screen-end > * { flex-shrink: 0; }
+
+.end-title {
+  font-family: var(--font-arcade);
+  font-size: clamp(30px, 6.5vw, 84px);
+  color: var(--chalk-warm);
+  text-shadow: 0 0 34px rgba(255,216,77,.45), 4px 5px 0 rgba(0,0,0,.5);
+  transform: rotate(-2deg);
+  animation: titleIn .6s var(--ease-pop) both;
+}
+
+.podium {
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: clamp(8px, 1.6vw, 24px);
+  width: 100%;
+  position: relative;
+}
+/* L'estrade : sans elle les pupitres semblaient coupés en bas. */
+.podium::after {
+  content: '';
+  position: absolute; left: 8%; right: 8%; bottom: 0;
+  height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, transparent, rgba(242,239,224,.45) 12%, rgba(242,239,224,.45) 88%, transparent);
+}
+.pod {
+  flex: 0 1 clamp(150px, 19vw, 250px);
+  border-radius: 12px 12px 0 0;
+  border: 4px solid var(--pc);
+  border-bottom: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 24%, transparent), transparent 85%);
+  padding: clamp(8px, 1.4vh, 16px) 8px;
+  text-align: center;
+  animation: podRise .6s var(--ease-pop) both;
+  animation-delay: var(--d, 0s);
+}
+@keyframes podRise { from { transform: translateY(60px) scaleY(.5); opacity: 0 } }
+.pod .rank {
+  font-family: var(--font-arcade);
+  font-size: clamp(22px, 3.4vw, 46px);
+  color: var(--pc);
+  line-height: 1;
+  text-shadow: 0 0 20px var(--pc);
+}
+.pod .pod-name { font-family: var(--font-hand); font-size: clamp(12px, 1.5vw, 20px); color: var(--chalk); }
+.pod .pod-score { font-family: var(--font-arcade); font-size: clamp(16px, 2.2vw, 32px); }
+/* Le détail du bulletin est ce que le parent vient lire : police droite et
+   taille de lecture, pas la manuscrite à dix pixels. */
+.pod .pod-stat { font-family: system-ui, sans-serif; font-size: clamp(12px, 1.1vw, 16px); line-height: 1.45; color: var(--chalk-dim); margin-top: .4em; }
+.pod.first { flex-basis: clamp(170px, 22vw, 290px); }
+.pod.first .rank { color: var(--chalk-warm); text-shadow: 0 0 26px var(--chalk-warm); }
+/* L'appréciation du maître, à l'encre de son carnet. */
+.pod .pod-note {
+  font-family: var(--font-chalk);
+  font-size: clamp(10px, 1.1vw, 15px);
+  line-height: 1.25;
+  color: var(--chalk-warm);
+  margin-top: .5em;
+}
+
+.notebook {
+  max-width: min(94vw, 1000px);
+  padding: clamp(10px, 1.8vh, 20px) clamp(14px, 2.4vw, 30px);
+  border: 3px solid rgba(242,239,224,.2);
+  border-radius: 10px;
+  background: rgba(0,0,0,.28);
+  animation: fadeUp .6s .5s both;
+}
+.notebook h3::before, .carnet-note::before {
+  content: '';
+  display: inline-block;
+  width: 1.25em; height: 1.45em;
+  margin-right: .45em;
+  vertical-align: -.4em;
+  background: url('../img/carnet.webp') center / contain no-repeat;
+}
+.end-record:not(:empty)::before {
+  content: '';
+  display: inline-block;
+  width: 1.5em; height: 1.45em;
+  margin-right: .4em;
+  vertical-align: -.38em;
+  background: url('../img/etoile.webp') center / contain no-repeat;
+}
+.notebook h3 {
+  font-family: var(--font-chalk);
+  font-size: clamp(13px, 1.7vw, 22px);
+  color: var(--rage);
+  margin-bottom: .4em;
+  letter-spacing: .04em;
+}
+.nb-line {
+  font-family: var(--font-hand);
+  font-size: clamp(12px, 1.5vw, 19px);
+  color: var(--chalk-dim);
+  line-height: 1.7;
+}
+.nb-line b { color: var(--pc); }
+.nb-line code {
+  font-family: var(--font-arcade);
+  font-size: .86em;
+  color: var(--chalk-warm);
+  margin: 0 .18em;
+  letter-spacing: .02em;
+}
+.nb-empty { color: var(--chalk-cyan); }
+
+/* À quatre joueurs le bulletin dépasse l'écran : « On remet ça » reste
+   collé en bas, visible sans avoir à faire défiler jusqu'à lui. */
+.end-actions {
+  display: flex; align-items: center; gap: clamp(10px, 2vw, 26px); flex-wrap: wrap; justify-content: center;
+  position: sticky; bottom: 0; z-index: 2;
+  width: 100%;
+  padding: clamp(10px, 1.6vh, 18px) 0 clamp(4px, .8vh, 10px);
+  background: linear-gradient(180deg, rgba(36,64,54,0) 0%, rgba(36,64,54,.94) 38%);
+}
+
+/* Les menus prennent le temps de lire ; le plateau garde ses gros chiffres. */
+button:focus-visible, summary:focus-visible,
+.pad-navigation button:focus, .pad-navigation summary:focus {
+  outline: 3px solid var(--chalk-warm);
+  outline-offset: 5px;
+}
+button { touch-action: manipulation; }
+.session-preview, .controls-help, .pause-panel p, .end-progress, .end-record {
+  font-family: system-ui, sans-serif;
+  font-size: clamp(14px, 1.2vw, 17px);
+  line-height: 1.5;
+  text-align: center;
+}
+.join-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.join-actions .btn-ghost { font-family: system-ui, sans-serif; font-size: 15px; min-height: 40px; color: var(--chalk); }
+button.slot { color: inherit; font: inherit; cursor: pointer; }
+.slot:hover { border-color: var(--chalk); }
+.session-preview { color: var(--chalk-cyan); font-size: clamp(13px, 1.05vw, 16px); line-height: 1.4; }
+.controls-help { width: min(100%, 900px); color: var(--chalk-dim); padding-bottom: 10px; }
+.controls-help summary { cursor: pointer; color: var(--chalk); padding: 10px; }
+.controls-help p { margin-top: 10px; }
+.keys-legend { font-family: system-ui, sans-serif; font-size: 14px; color: var(--chalk-dim); line-height: 1.7; }
+.keys-legend b { color: var(--chalk-warm); }
+.btn-pause {
+  font-family: system-ui, sans-serif; font-weight: 650; font-size: 15px;
+  color: var(--chalk); background: rgba(10,20,17,.5);
+  border: 2px solid rgba(242,239,224,.4); border-radius: 8px;
+  padding: 7px 14px; cursor: pointer; min-height: 42px;
+}
+.btn-pause small { display: block; font-weight: 400; font-size: 11px; color: var(--chalk-dim); }
+.pause-veil {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: #142b22; align-items: center; justify-content: center;
+  padding: 30px; overflow-y: auto;
+}
+.screen.paused .pause-veil { display: flex; }
+.pause-panel { display: grid; justify-items: center; gap: 24px; width: min(100%, 640px); text-align: center; }
+.pause-panel h2 { font-family: var(--font-arcade); font-size: clamp(30px, 7vw, 64px); color: var(--chalk-warm); }
+.pause-panel .btn-start { font-size: clamp(22px, 4vw, 36px); }
+.pause-panel .btn-ghost { font-family: system-ui, sans-serif; font-size: 17px; }
+.prompt-tail.hidden-mem { visibility: hidden; }
+.round-feedback { min-height: 2.5em; font-family: system-ui, sans-serif; line-height: 1.35; font-size: clamp(14px, 1.7vw, 22px); color: var(--chalk-cyan); padding-top: 10px; }
+.round-feedback:empty { padding-top: 0; }
+.teacher-burst.correction::before, .teacher-burst.correction::after { display: none; }
+.teacher-burst.correction .burst-face { width: min(19vh, 13vw); min-width: 70px; opacity: .9; }
+.teacher-burst.correction .burst-bubble {
+  left: clamp(85px, 13vw, 200px); bottom: 13vh;
+  max-width: min(36vw, 380px); font-family: var(--font-hand);
+  font-size: clamp(15px, 1.7vw, 24px); padding: 10px 16px;
+}
+.teacher-burst.correction .burst-bubble::after { bottom: -15px; border-width: 10px; border-bottom: 0; }
+.end-progress { color: var(--chalk-dim); }
+.end-record { color: var(--chalk-warm); font-weight: 650; }
+.end-record:empty { display: none; }
+
+@media (max-width: 1180px) {
+  .menu-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+  #panel-classe { grid-column: 1 / -1; }
+  .op-name { font-size: clamp(11px, 1.5vw, 16px); }
+  .op-sign { font-size: clamp(30px, 4.6vw, 54px); }
+  .chip { font-size: clamp(12px, 1.5vw, 16px); }
+  #seg-preset .chip { font-size: clamp(11px, 1.35vw, 14px); }
+}
+
+@media (max-width: 700px) {
+  .screen { padding: 24px 22px 32px; }
+  #screen-title { justify-content: flex-start; gap: 12px; }
+  .title-teacher { width: 65px; }
+  .menu-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .panel { gap: 12px; padding: 12px 12px 14px; }
+  /* Quatre tuiles de front tronquaient « Multiplications » : deux par
+     rangée, le signe à côté du nom. */
+  .op-tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .op-tile { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 9px 6px; }
+  .op-sign { font-size: 30px; }
+  .op-name { font-size: 15px; }
+  .prompt-tail.fort { font-size: 28px; }
+  .question-zone .prompt:has(+ .prompt-tail.fort) { font-size: clamp(30px, 9vw, 56px); }
+  .slot { padding: 8px 2px; }
+  .slot .slot-dev { font-size: 10px; min-height: 2.6em; }
+  .slot .slot-state { font-size: 13px; }
+  .join-row { gap: 6px; }
+  .chip { min-height: 38px; }
+  .btn-start { font-size: 23px; padding-inline: 22px; }
+  .custom-row { flex-direction: column; align-items: stretch; gap: 14px; }
+  #screen-game { overflow-y: auto; justify-content: flex-start; gap: 14px; }
+  #screen-game > * { flex-shrink: 0; }
+  .hud { gap: 6px; }
+  .teacher-slot { width: 48px; }
+  .hud-right { min-width: 62px; }
+  .chalk-note { font-size: 12px; }
+  .trap-banner { font-size: 12px; letter-spacing: 0; }
+  .question-zone .prompt { font-size: clamp(34px, 10vw, 64px); min-height: 1em; }
+  .question-zone .prompt.is-text { font-size: 24px; }
+  .diamond { width: min(100%, 410px); height: 290px; aspect-ratio: auto; }
+  .ans { width: 40%; height: 29%; --cadre: 9px; }
+  .diamond.wide-ans .ans { width: 46%; height: 27%; }
+  .ans-val { font-size: 36px; }
+  .ans.op-mode .ans-val { font-size: clamp(12px, 3.3vw, 18px); }
+  .ans-btn { font-size: 10px; letter-spacing: 0; }
+  .desks { margin-top: auto; flex-wrap: wrap; }
+  .desk { flex-basis: 45%; }
+  .desk-keys { white-space: normal; font-size: 9px; }
+  .teacher-burst.correction { display: none; }
+  .podium { flex-wrap: wrap; align-items: stretch; }
+  .pod, .pod.first { flex: 1 1 40%; }
+  .notebook { max-width: 100%; }
+  .nb-line { overflow-wrap: anywhere; font-size: 16px; }
+}
+
+@media (max-height: 600px) and (min-width: 701px) {
+  #screen-game.is-active {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px 24px; padding-block: 20px 26px;
+  }
+  #screen-game .hud, #screen-game .desks { grid-column: 1 / -1; }
+  #screen-game .question-zone { grid-column: 1; grid-row: 2; align-self: center; }
+  #screen-game .diamond { grid-column: 2; grid-row: 2; justify-self: center; align-self: center; }
+  .hud .teacher-slot { width: 46px; }
+  .round-counter { font-size: 17px; }
+  .trap-banner { font-size: 15px; }
+  .prompt { font-size: min(8vw, 12vh); min-height: 1em; }
+  .prompt-tail { font-size: 22px; }
+  .diamond { height: min(52vh, 260px); min-height: 160px; }
+  .ans { --cadre: 8px; }
+  .ans.op-mode .ans-val { font-size: clamp(13px, 1.8vw, 20px); }
+  .ans-val { font-size: 32px; }
+  .round-feedback { font-size: 13px; min-height: 2em; padding-top: 4px; }
+  .desk { padding-block: 4px; }
+  .teacher-burst.correction { display: none; }
+}
+
+/* ─── Accessibilité / réglages système ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
