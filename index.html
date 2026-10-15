@@ -24,6 +24,15 @@
 <canvas id="fx-canvas" aria-hidden="true"></canvas>
 <div id="flash" aria-hidden="true"></div>
 
+<!-- Plein écran, dans le coin du tableau. Hors de #stage : il reste au-dessus
+     de la pause et du maître. Caché là où le navigateur ne sait pas le faire. -->
+<button class="btn-fullscreen" id="btn-fullscreen" type="button" aria-pressed="false" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path class="fs-enter" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
+    <path class="fs-exit" d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/>
+  </svg>
+</button>
+
 <main id="stage">
 
   <!-- ══════════════════ ACCUEIL ══════════════════ -->
@@ -86,9 +95,12 @@
         <h2 class="panel-title" id="h-classe"><b>3</b> Les élèves</h2>
         <div class="join-row" id="join-row" aria-label="Joueurs"><!-- pupitres injectés par JS --></div>
         <p class="join-hint" id="join-hint" aria-live="polite"></p>
-        <div class="join-actions">
-          <button class="btn-ghost" id="btn-solo">Jouer à la souris ou au toucher</button>
-          <button class="btn-ghost" id="btn-keyboard">Ajouter un joueur au clavier</button>
+        <!-- Le choix à la main, pour les cas qui sortent de l'ordinaire : il
+             n'apparaît qu'en cliquant un pupitre. Boutons injectés par JS. -->
+        <div class="device-picker" id="device-picker" hidden>
+          <p class="picker-title" id="picker-title"></p>
+          <div class="picker-options" id="picker-options" role="group" aria-labelledby="picker-title"></div>
+          <p class="picker-note" id="picker-note"></p>
         </div>
       </section>
     </div>
@@ -124,7 +136,7 @@
       <p class="custom-preview" id="custom-preview"></p>
     </div>
 
-    <button class="btn-start" id="btn-start" disabled>
+    <button class="btn-start" id="btn-start">
       <span>Commencer la partie</span>
       <small>Start / Entrée</small>
     </button>
@@ -175,6 +187,8 @@
       <button class="ans ans-left"  data-slot="1"><span class="ans-val"></span><em class="ans-btn">□ / X</em></button>
       <button class="ans ans-right" data-slot="2"><span class="ans-val"></span><em class="ans-btn">○ / B</em></button>
       <button class="ans ans-down"  data-slot="3"><span class="ans-val"></span><em class="ans-btn">✕ / A</em></button>
+      <!-- Le tampon du verdict, au centre, posé à la révélation seulement -->
+      <div class="verdict" id="verdict" aria-hidden="true"></div>
     </div>
 
     <footer class="desks" id="desks"><!-- pupitres injectés --></footer>

@@ -70,6 +70,30 @@ MX.FX = (function () {
     }
   }
 
+  /** Étoiles dorées qui jaillissent de la bonne ardoise : la manche est gagnée. */
+  function stars(x, y, count) {
+    for (let i = 0; i < (count || 10); i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(160, 460);
+      spawn({
+        kind: 'star',
+        x, y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 160,
+        r: rand(7, 15), ang: rand(0, 6.3), spin: rand(-6, 6),
+        life: 1, decay: rand(0.55, 0.9),
+        col: pick(['#ffd23f', '#ffe27a', '#f2efe0']),
+      });
+    }
+  }
+
+  function starPath(r) {
+    cx.beginPath();
+    for (let k = 0; k < 10; k++) {
+      const rr = k % 2 ? r * 0.45 : r, a = -Math.PI / 2 + k * Math.PI / 5;
+      cx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    cx.closePath();
+  }
+
   function loop(t) {
     const dt = 1 / 60;
     cx.clearRect(0, 0, W, H);
@@ -99,6 +123,15 @@ MX.FX = (function () {
         cx.moveTo(p.x, p.y);
         cx.lineTo(p.x + Math.cos(p.ang) * p.len * p.life, p.y + Math.sin(p.ang) * p.len * p.life);
         cx.stroke();
+      } else if (p.kind === 'star') {
+        p.vy += 420 * dt; p.vx *= 0.98; p.ang += p.spin * dt;
+        cx.globalAlpha = Math.min(1, p.life * 1.5);
+        cx.fillStyle = p.col;
+        cx.save();
+        cx.translate(p.x, p.y); cx.rotate(p.ang);
+        starPath(p.r * (0.6 + 0.4 * p.life));
+        cx.fill();
+        cx.restore();
       } else {
         p.vy += 900 * dt; p.vx *= 0.99; p.ang += p.spin * dt;
         cx.globalAlpha = Math.min(1, p.life * 1.6);
@@ -137,5 +170,5 @@ MX.FX = (function () {
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
 
-  return { init, chalkDust, shards, confetti, shake, flash, centerOf };
+  return { init, chalkDust, shards, confetti, stars, shake, flash, centerOf };
 })();

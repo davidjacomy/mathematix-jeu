@@ -9,12 +9,13 @@ MX.Input = (function () {
   /* Une « manette clavier » par joueur : 4 touches en losange.
      On lit event.key pour les lettres (indépendant du layout AZERTY /
      QWERTY) et event.code pour le pavé numérique (sinon la rangée de
-     chiffres du haut déclencherait aussi). */
+     chiffres du haut déclencherait aussi). Les flèches viennent en tête :
+     c'est le pupitre du joueur seul, celui qu'on prend sans rien choisir. */
   const KB_LAYOUTS = [
-    { label: 'Z Q D S',        keys: { z: 0, q: 1, d: 2, s: 3 } },
-    { label: 'I J L K',        keys: { i: 0, j: 1, l: 2, k: 3 } },
     { label: 'Flèches',        keys: { arrowup: 0, arrowleft: 1, arrowright: 2, arrowdown: 3 } },
-    { label: 'Pavé num 8 4 6 2 (ou T F H G)', keys: { t: 0, f: 1, h: 2, g: 3 },
+    { label: 'Z Q S D',        keys: { z: 0, q: 1, d: 2, s: 3 } },
+    { label: 'I J K L',        keys: { i: 0, j: 1, l: 2, k: 3 } },
+    { label: 'Pavé num. (ou T F G H)', keys: { t: 0, f: 1, h: 2, g: 3 },
       codes: { Numpad8: 0, Numpad4: 1, Numpad6: 2, Numpad2: 3 } },
   ];
 
@@ -37,7 +38,7 @@ MX.Input = (function () {
 
   function deviceLabel(d) {
     if (d.type === 'pad') return 'Manette ' + (d.index + 1);
-    if (d.type === 'pointer') return 'Souris / tactile';
+    if (d.type === 'pointer') return 'Souris / toucher';
     return 'Clavier · ' + KB_LAYOUTS[d.layout].label;
   }
 
@@ -48,12 +49,14 @@ MX.Input = (function () {
 
   function isTaken(d) { return !!findPlayer(d); }
 
+  function isValid(d) {
+    return !!d && (d.type === 'pointer'
+      || (d.type === 'pad' && Number.isInteger(d.index) && d.index >= 0)
+      || (d.type === 'kb' && Number.isInteger(d.layout) && !!KB_LAYOUTS[d.layout]));
+  }
+
   function joinDevice(device) {
-    if (mode !== 'lobby' || !device) return null;
-    const valid = device.type === 'pointer'
-      || (device.type === 'pad' && Number.isInteger(device.index) && device.index >= 0)
-      || (device.type === 'kb' && Number.isInteger(device.layout) && !!KB_LAYOUTS[device.layout]);
-    if (!valid) return null;
+    if (mode !== 'lobby' || !isValid(device)) return null;
     const existing = findPlayer(device);
     if (existing) return existing;
     if (players.length >= 4) return null;
@@ -61,6 +64,30 @@ MX.Input = (function () {
     players.push(p);
     if (cbJoin) cbJoin(p);
     return p;
+  }
+
+  /** Le joueur garde sa place et sa couleur, et prend un périphérique libre. */
+  function reassign(id, device) {
+    if (mode !== 'lobby' || !isValid(device)) return null;
+    const p = players.find(x => x.id === id);
+    if (!p) return null;
+    const owner = findPlayer(device);
+    if (owner) return owner === p ? p : null;
+    p.device = { ...device };
+    return p;
+  }
+
+  /* La souris n'a pas besoin d'inscription : elle répond pour le joueur
+     inscrit à la souris seule, sinon pour le premier joueur au clavier —
+     clavier et souris sont sur la même table —, à défaut pour le premier. */
+  function mousePlayer() {
+    return players.find(p => p.device.type === 'pointer')
+      || players.find(p => p.device.type === 'kb') || players[0] || null;
+  }
+
+  function playerLabel(p) {
+    const label = deviceLabel(p.device);
+    return p.device.type === 'kb' && mousePlayer() === p ? label + ' + souris' : label;
   }
 
   function removePlayer(id) {
@@ -85,7 +112,9 @@ MX.Input = (function () {
     }
   }
 
-  function handleStart() { if (cbStart) cbStart(); }
+  /* `device` : la manette qui a appuyé sur Start. Le clavier ne se nomme
+     pas — Entrée n'appartient à aucun pupitre. */
+  function handleStart(device) { if (cbStart) cbStart(device); }
   function handleMenu(action, device) { if (cbMenu) cbMenu(action, device); }
 
   function isControl(target) {
@@ -192,7 +221,7 @@ MX.Input = (function () {
       const device = { type: 'pad', index: i };
       // On mémorise TOUS les fronts avant de notifier main.js : un callback
       // peut changer d'écran. Le même appui ne doit pas traverser cet écran.
-      if (edges.some(b => PAD_START.includes(b))) pending.push(() => handleStart());
+      if (edges.some(b => PAD_START.includes(b))) pending.push(() => handleStart(device));
       else if (frameMode === 'play') {
         const button = edges.find(b => PAD_FACE[b] != null || PAD_DPAD[b] != null);
         const slot = button == null ? (stickEdge ? dir : null)
@@ -234,7 +263,7 @@ MX.Input = (function () {
     for (const prev of Object.values(padPrev)) prev._menuUsed = false;
   }
 
-  /** Liste des périphériques encore libres, pour l'affichage du lobby. */
+  /** Liste des périphériques encore libres, pour le choix du lobby. */
   function freeDevices() {
     const out = [];
     const pads = readPads();
@@ -243,6 +272,7 @@ MX.Input = (function () {
         out.push({ type: 'pad', index: i });
     for (let L = 0; L < KB_LAYOUTS.length; L++)
       if (!isTaken({ type: 'kb', layout: L })) out.push({ type: 'kb', layout: L });
+    if (!isTaken({ type: 'pointer' })) out.push({ type: 'pointer' });
     return out;
   }
 
@@ -254,7 +284,8 @@ MX.Input = (function () {
   }
 
   return {
-    start, reset, joinDevice, removePlayer, deviceLabel, freeDevices, padCount,
+    start, reset, joinDevice, reassign, removePlayer, deviceLabel, playerLabel, mousePlayer,
+    freeDevices, padCount,
     padStatus() { readPads(); return padsStatus; },
     KB_LAYOUTS,
     get players() { return players; },

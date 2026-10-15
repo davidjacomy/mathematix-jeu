@@ -404,6 +404,28 @@ body {
 }
 .join-hint b { color: var(--chalk-warm); }
 
+/* Le choix à la main d'un périphérique : sous les pupitres, à la couleur
+   de l'élève concerné. Il n'apparaît qu'en cliquant un pupitre. */
+.device-picker {
+  align-self: stretch;
+  display: grid; justify-items: center; gap: 8px;
+  padding: 10px 12px 12px;
+  border: 2px solid var(--pc, var(--chalk));
+  border-radius: 12px;
+  background: rgba(6,14,11,.4);
+  box-shadow: inset 0 0 22px -10px var(--pc, transparent);
+  animation: fadeUp .22s both;
+}
+.picker-title, .picker-note { font-family: system-ui, sans-serif; text-align: center; line-height: 1.35; }
+.picker-title { font-size: 15px; color: var(--chalk); }
+.picker-note { font-size: 13px; color: var(--chalk-dim); }
+.picker-note:empty { display: none; }
+.picker-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.picker-options .chip { font-family: system-ui, sans-serif; font-size: 14px; font-weight: 600; color: var(--chalk); min-height: 36px; }
+.picker-options .chip.retire { color: #ff8a98; border-color: rgba(255,43,69,.55); }
+.picker-options .chip.ferme { color: var(--chalk-dim); border-style: dashed; }
+.slot.picking { border-style: solid; border-color: var(--pc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc) 35%, transparent); }
+
 /* Réglages */
 .setting-group { text-align: center; min-width: 0; }
 .setting-label {
@@ -792,6 +814,84 @@ body {
 
 .ans.locked { pointer-events: none; }
 
+/* ─── Le verdict de la manche : il se voit autant qu'il s'entend ─────
+   Posé sur le losange à la révélation (`verdict-win` / `verdict-lose`),
+   jamais avant. Les cases sont placées par `transform` : on anime la case
+   par `translate` (qui s'y ajoute), et son contenu par `scale` — posé sur
+   la case elle-même, `scale` la ferait dériver d'une demi-largeur. */
+
+/* Victoire : le nombre juste bondit, une onde part de l'ardoise. */
+.diamond.verdict-win .ans.reveal-good .ans-val { animation: valPop .65s var(--ease-pop) both; }
+@keyframes valPop { 0% { scale: 1 } 35% { scale: 1.32 } 60% { scale: .94 } 100% { scale: 1.08 } }
+.diamond.verdict-win .ans.reveal-good::after {
+  content: '';
+  position: absolute; inset: calc(-1 * var(--cadre));
+  border: 4px solid var(--chalk-cyan);
+  border-radius: 10% / 16%;
+  pointer-events: none;
+  animation: goodRing .8s ease-out forwards;
+}
+@keyframes goodRing { from { opacity: .95; scale: 1 } to { opacity: 0; scale: 1.5 } }
+
+/* Défaite : la bonne ardoise se montre sans fête, d'un halo qui respire ;
+   celle qu'on a choisie à tort secoue la tête sous sa croix. */
+.diamond.verdict-lose .ans.reveal-good { animation: goodCalm 1.1s ease-in-out 2; }
+@keyframes goodCalm { 50% { filter: drop-shadow(0 0 20px var(--chalk-cyan)) brightness(1.3) } }
+.ans.reveal-bad.chosen { animation: badShake .55s ease-out; }
+@keyframes badShake {
+  15% { translate: -10px 0 } 30% { translate: 9px 0 } 45% { translate: -6px 0 }
+  60% { translate: 4px 0 }   75% { translate: -2px 0 }
+}
+
+/* Le tampon, au milieu du losange. Il tombe et repart vite : pendant qu'on
+   lit la correction, il ne doit plus rien cacher. */
+.verdict {
+  position: absolute; left: 50%; top: 50%;
+  z-index: 4;
+  translate: -50% -50%;
+  pointer-events: none;
+  font-family: var(--font-arcade);
+  font-size: clamp(16px, 3.6vh, 32px);
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+}
+/* Gagné : l'étoile du bon point, et le mot dessous. */
+.verdict.win {
+  padding-top: 2em;
+  background: url("data:image/webp;base64,UklGRoQbAABXRUJQVlA4WAoAAAAQAAAAlQAAkAAAQUxQSGIIAAAB8Ebbtmnbtq3lUmodc0zPsWzbtm3btm3btm3b1jSWJ5Y9sTTVWy0lbwz03tB/R8QEoDQD/l8FzaUizLXGkn0BaSoUm7z5x6R/Rp7dCmkiAg6ssd0Xeog2DYr1jMndfSrvltA8tA5gYruJ60KbhIgdPLGjV5sFkfAhO3KbvJLEpiBgaxo7zngHtBkQbf3AUyfIbAFoExCwWTLvTOLtiE2A4HUaO+s2dn4JladYn87OJ14GrT55iakL7mOnh1RckNVq5l2g8QTEilM8wcSuJg7pK1JpiiUzZ9cTN5ZQaQH3MNXlJUiVBVlqinkd3CcvC60wxf1MrGeN10usLsXKNWNd3cbNIVpZQR9gVh8mnoZQVSqLTzavk3NMm0pV4X4m1jvxIIRqClh8onvdjF/2FKmmcAsz1t94OEIVqcwxyb0ByT/rp1JBAZfR2EBP3BWxelTm+cMbwsT3gkjlBFzOjI11rgutGsUiNWeDE5/VWDUBdzM1ym3KShKrJciC480bxYy3Q6tFcQ4z5nDqPNAqEfT7k56DxJsQqyTiDBpz6DZuXmh1qMz0neeCiRdVCg5lYi7df+8HqQqR7iPd8sHEo9BSFRGH0Jibj3qpVINI31GeGxrXklANimOYmB9/DFoRPUa55cc5YXZo2Ylq6Ib9LTHHGc+UVhUpJRENsaUl4P+7fcZcmf/SF4DElhhUykFEQwyCToYZFllp9fPozLXzlsVn74WORUOMQaUIIiIaYlS0r70W2Gifky695cE3v/iXpDPnzinf9H/h7muP3W6V2QM61pYYVETyIBpiDIJOti24+paHXf/aqPETnR16Ssy9scPa36M/fPiSQ7baYMV5eqNjjS0xqNRFVEOIAR229Oo7/4aHX3n/q8N/Z8duWS1L5iykW8pqmbGTtR8Hv/zIJQdvumhbL3QYYgxBVaQjUbQfZ1t56/3Puf35wT9PzNi+Z1kyd3eWorubpSxL7DBN+fmV6w7bc5sVZ1d0HKQdAaZfetczbn36jcHfTmYnPWVZMmc5u6UsS86OJ3478K03Hrvs4A0XnLkHIAAE010xlh1bliUzd1amW6rVjJ2s9T9reghU2t4n3S2llMxZ0W4ppWTmJDlgRqjiXE5xNpE2mbdpQK9RZmwuzaYHZppMbzLIBYHp/mpOWvu7NRk+ZTpE7M5ac5HxyaDQbg8xNRNmk1dBgEifwcyaByf3gQJQzDmKqVkwZvsh4P8Vi/zA1BwYJ22PiPYDVhvP1Axk/GdLROkAEWuPpVVfxp/WQkBnA9Yez1R1iQMWQkDnA5YZyVRtGV9sQ0RXA+b/nKnKMr7VioCuB8w0gKm6Mg5pQ0A9A2YZzlRVGUfPC0V9A2b8jKmaEofNjYB6B8z/LVMVZfxkdijqH7D0L0zVk/hqLygaGbD0D8yqJuNrfRDQ2IAlv2GqFE98qgWKRgfM1Z9ZhTh5fTcoGq9oe5lWGWbZEYAgjwE9HmSqCHfuARXkUyE3M1WCJx6CKMirit7KVAFmPB0BORaJDzMrPaOfAJE8QaX760wllzh1LwRBvhVtH7BWaom/romA3Cu6v8FUYok/r4iIAir6vMqstBJHLYYWFFLR8iiTl1PiF4sgoqAqrbfRvYwy9p8TEYVV4GRzL5/E92ZFQIFFsZ/Tyybjy/0QUOyIPRO9XJwvtEFR9Ig9p5aL8/m+CCi8aq8RtBJxTpwXihLAghPopTJ5OSmDgGVpLFPj4YilsB1TqWS8qhRUrqWVSuKbrSLFE3xUMsbx80ELJ5hzLL1UaFwDoXARu9NLJvEEaAmcyYzlanweUjRBt9eZSmckCq+YZRy9ZJx/Lwwt3Mp0lq3xAMSiyem00qnxYrQULODpEkp8OogUCz2+KCHjzzNDCxWwTkYvHToXLljE0UwsX+POxRLRJ0vq9oJh2t/opfQxQpEUS9JZSqP6iBTqBFoZOaesAS1QxENMZcTE/RCLI4p3S6rGixCKo5j9O1opJb7eAilMxPrmXkrO36ct1CHMWNYrQ4si0JdpefI8Gc9DKE7P3+n58eSWo8Q3oUVRrGrMrRtJWsqN8bf5oAWJcgotLxlZu2WXx0iznNC4DWJRcBdTLjyRf92+FKCbDybN8lHjMUVR6TeElgcj0+3LAhoB2XMgmSwPxmcUUoiAlTN648xoTy0KBAVEgZ47DCXNGuf8rWdBInZgYqM9I99ZD1BFuxKB1r1HkJk3irR5oIUQualhycjh+weoopOiQI/DviYzb5DzQIRCAJ/RG2KJHHl4GxDQRYnAzGf8TiZvSMY7EIugmGdSQzyRQw5vBQLqKAGY+bKxZPKGvCZahIiTaay/kcN27QcEQX01AAtc/AeZvG7OPxZCKMR9zOpmif+c3gOIaKBEYL4rJ5JWL2bcGDF/gj4DmepkiXxzeSAIGqsBWOKBGs3rdiY0fwGLT6bXJ5FfHRQRBI3XAKz3AZnq4xwgKMIaTKyjJ/Ln06cFFPlURffjx5LJ6zKuWwEUh9bFyNq18wJBkNsALHpnjW5dI7PVoQV4iNalZPTHlgKCIM8SgJUeczJ1yXg8Yu4Eg7pkiXxtHUAVeVcF1niFNOtCxhsLgO4/dSGRHLAvoIoiqgLbvE2adSqxf29IzhTL/UvvhBn5/g69IQFFDYK45Udksk4Yf5wTmrsVJ3XCjHx9WwABRQ5A3Hc4mbwTv82bO6DbaLN2LJEfbhMhQVBsCcA0R48mk7eTrH8fkbwpLmLN6Z7IEXsoEFCGAZjp7D/IZE6fyjMQkTuZ9i22++tpfQEVlKMEYL7rx7HdD/oI8i+Y9vJvp0wceeX8QESJSgAWO+/ziVN/vGUmFAEC9Fl8kT5AEJSrBqD3CuvOBAgKKQoAqihfVQAQQSMBVlA4IPwSAABwRQCdASqWAJEAPikQhkKhoQqlVr4MAUJYgDV8jFdnml+n/rP7De0hZH6595vyI6GwzfYz+R/sX7n/4Dtcfct7gH6Uf5v82P7l3PP259Qv6/fsZ7zfog/wHqAfy//GdYP+0PsAfyn+++lz+2vwV/1//Uf+f/RfAj+u//w9gD/8eoBwvX9Z7ZP8V0lHp32Q5sz0H3g/Vf3b9pfafvf+O2oF+MfzD+8flx/a/hcflaWegF7T/O/8n+b3+C8pL0M+bL3AP1U/xf5cesv4KfpfsAfzD+u/3382P8Z9Mn85/4P9J+Xvt0/Pv8X/2v8r8A/8f/oP+a/u/+K/73+L////p+9n2bftp7Fv6rHnyJTi2uY+gyDqNd98imJcRsOnfpNKey3TaNflKeoA9rZwPatepKsGUfz9zVF4XvBCHox9BQ1RZZaW0eaD0gjnYBrL+qN4iTNMiWhi2QPe1bYQTxxIPz886hbC8+oAAdDhgCtsPRBeVF+npJyOhMkS0zLuiNObL3YrNl7mLIoww16Cxsq52BN8f5jEe/2jX8Kk4ebR8UQ0fGY0zIo8d1McVx2M5bdzn6KU1tIc2/LXYY6RxCgR6Wn/PpmstwQkqMeksjxiwMoPs2ffJvDQj32bM21yLL3kIb86XRx0repJNCVKKYDAeDZkSIxN/wXvFRcLcdoXnH7fHnY2LLJs1nhCyNqG0Xjx4nxKwtVd7x5/Nn9Ysx+oQzmq6x5iybRY1zvcgxvBYEwbrHqDWgAA/v9gGU97+Y5khz3Qf+rs66UDar7pIv+A9nD8he5H3StOHbcsN3IAvTXy+Hnhm366l7QWJBShqDhsenHMikedRkWjpFZZWUaQeGLLIWL6oREXeOI8ACwSZz+In3a2a0rfG6LlrU4jqc310M8fd/4ZYfB04PqI32/H/FEmXYGkmvgm+y0Ov3N7OCKDdarHDnjr0fhZdPxHwRjtqbphahj7myeIz667ku0c9n8QDzSAQ24dZB1MjnR3Y90hCcID+sWH7DZBQa1WFws1lEMjlRQq10OVr7Fa6eEEzMvZuCLRuZqrmUg3PY/jRHaAAQfbSw9BxJ7zI/HJObb+fSV/m4N5ZlpwlLpJ0kWNwb7UrbBfGj6ehNkcd9Dt6sLwJOChYuWdzH14lJeDTT7Ke2mHXsSi9F2AzSfzBwor3hjgoEUxgA1IS6wdhKG1x0B24/9leQPxD5hHgm8bxFHU0hVJcriFWpA5zlew3Uyx+llWLjxnscNc8dGksJazHD4tgf/GU3HPJ7XmFRGmVty8lkX7/LGV8PwH91gqo6belqYTLGCv+8udNl9tuv28Jxf4qz6UICf532iSVZU5Fr/lA1i7CckcBRBXpoDgQhEPPrVtyXdGSHWuY+NE61tyBdn9omOr9xAkKOjbhGfXHyibq/TYvLb4N9vLiRzvddLovzObz4/7uNiFGNQc3K1mj7c1N6r+J0GFsk6W6/FN9YhtoACrrif1+cfWSI6XswqDw0q+J37IYOtgde46wopFAA03beUVfHNjFzXmRyrdntDwFhW7rKE6HdnUT7ro+qf06WP9aqC07Ml3EwbNw/WGxi68NVGPLYm1ZYyjHIPrMxnI1WBniG5YBTn3hjN0NGa+HHmhx2MRJFcy6zJnoUxhxA7JgDX2xylHUEknHHq0Btc8RISI2bk1AIhK5jIBVCDMZFzL8fcZ1SXxLNAjEJes/KiQxuz36DYb78geFUpWdTeMGfW4uO0fzS6Ej5+rtde4n50FA3euQTkwZ76gXwAwx3H3PMl1BXtUnATK4YFyzMmbcKt2SP3lqO4O2+OREP2FVIbUQGnkEFzW2phGyMJKGSvdCJwPvnPtUliUZAj47Jo1ZOLeubxdIJ2ZgIwYBUDziwBNL4KDbxOadLd366FkWa1aWlq8hO57dy4Ep7G0FAR8g8bYNckRmKQfwO0kJTcx/oA5fx/7TMWop0l18jQxNaOB41WvLBhv3DoxGSRot1cVIaRiHGqGErPB/M1wmjlZLlns9Q5n+mS+gbie5Nkk2CwcSa77WRXi7BYM5Cy6XP7P18MhNG/57cRmeQMrV276wg7XpPz0dNJ0P3UGLX3Mq2t23RNHAtIkoV7lM08Z7LK4umIFGYYQDAwnY67awaR09kZfC4vDyCJ3fwS9TDvlt4fbAr1zxU0dPiOzHR8wyZVCpalj9+zOyGe9UlhFdDj10YOwBGHFIbFVnHAAAzU5lr3eRuSlr9TJHd9feirQZWqp3mFxC2E9I/2wsFw7dyvhQUhWyXeJFSQ9U79jaGAXmawJhpO/fB2GapJdF3SHDaxIAk4+EhK2f0rHuvOZ1opFaCjChZgFBVpqBgMwCZMrKqqZnbj4W2qduFz5UqQSdS+TYR9S7XPqwFao8jPLg50RU+UGmUQDVVOxDrgVIXcHUywy3Sldi6gYtbMN1TNDbLxrnuJbflIf62fOHceoem1YKg0/8WN2frWPojgWwCseBxmiKu4lKFiTt0oQJBzLoqzREVAMRg9NeNtjtc01rRVtO1JlEmyqz+a7VELtIegUQjsW8ZYeS5Kqbu8Yg0wfG8sXess0vL3Ia+4Djbu5TBErPpnMp+iKl5ix42J5Lhf9Z84b0fZ6bephWaWa7dZW+bbLMCEe2WBGSg64v6Z6BYmsRkRai8btMcpWIQ0wCRdMqd3pSJRd3zZSiiuLH08vL6dg4jzVFqx9mrHbrQySbhaY2/KTp6xbQGPf3pIcAb0Q/yGlBc6vuTd/jMVeZ8TMu42evI0GOoGbQ47hEN0EwVKvAeEGNhgO77ijoA965csMxPut4ZPYeBTv59nxgWudpBhrs+ihHkqoFn3s8bvZhZbmrtJz5Xpf/oNRETU3CB3feUUgeBPHi7rXNpm98TfB65/lNQjGIqZBtXFahrw2f2Wv0OMumyv/3aJp83dA0tOXPJDwiqUfon6LAm9iqPC5qpmyKoCQ6T+rNgnKWArXWPeEssJONnFm5Q80tm8bL1jSDlwas0kVWl8yOROQG7ZUvfQo6fF2s1VBGgmEO8vEKImaYdX8PUZu4dQCS8rM4o3pUzutXkAEWdFkGh79mImXO5KdFET6mryg1zKDyrdwwxspuaLGlvr1vPrn1JkB7Hv4bkFKFyzGEP9d5KVEU93aaICdnXnxNmSvZRa67DPx80rrW0IjBPuDJZK5rslnR/bMO6f1VL6DPqHOHc9bVAtwrbQHC9kh2AENTRbgr2AjzKLXoyaSBuLuHviuPjcLqqfAW3H/VT0FT9shidVFcc91EWyQpAuuc2Wqh/31173edmGU6kaxbAf0bzmHWznYBTnYX7fXDoXcgoWHrGqaaRfNW4Yk6NpGZu2CjiT1Yg0c4uQu+ICWGoNA5rTQj3cLPRPh2y3mr1bJU5lvYPLsJ7DvQ+RvhYuKYiZpcoTMB1fQ7wCwqbJgdsyOGhyop4HxThAByUUE8vmZL8GZEZcEqNDQQC5CqhA+VRDukN2IHIVsbeRL2CghDNSNj3DciyuBQf2TPjf9jx86DpJT1PrbmcIJi7Yei2wEzG1lbBXf4PLA9jfIzngP5yipw0cjp5W33oTP9mcVF4iobXUHo6/f1FUYoQ4VESsLlHB4Mh+ApknL+kkAsMCXB57wfAdM11Fmw1tTIyEKBFavTxL+AxBm3NB60h9a6E/1OFvEvGBrScPVm7PHWBah1hLjXPHNPvlUiE7zIhJ32QLOwljv3sn1pkBvxzVX7nYGaI5AKYM25ePjFIsGixAMT6VgSq1GnOGMw2lsNXSz4wr+iG0VNqwwrH+Y7mXXAtz8973o07/Z8g9cdDVxeS0a78wdpoEXasASfnR2asTDQ7Y1ziJHODqZSwpK4qmQtzxbLNfmXKi4qez3q2yDq7/6O5tojKKh4gSci60Vc7n5Hc63mTWH59qxIUiabLWxfMBRHyO5fPfZBJdzy8/R6fVpyg37kREh6GFfy3VoDV3HkCiN0vSFR5G5xWC+fahc/8ORgyRVx4bbZEa/C+ubMUzLPgRgU9kSXLiMl805pPCmKKMcGWj9RjlJZcb2QPzUwyoBZWoGGXqrWBvOoJS4auo8VDChzfVbzD0xUxt92NILuO7fsnH4f7AryuF0rcNLB2QU7OEsmj6Jm1XNMUHMAnsUHxu01wFKMLUgo1tgzh9H6z/8DkiawxpXLoNRXyjL/LahwVcDO/8ukEZ6Kjwf9drArqnJ9HJ4v8fVn/MkRNqNAmyS5/iIKt/YqzAyBrezZwi0tUnHkakpGjErU9WY09t6TaD1DV8X3p+GE6nSHwASODvlcrztJsS+Pgfq2EmJx0vMV5RuqJVfawC2GbG9VImel3ogAKJ9gW9QP1z7m82Gvk9pRIAAAxEJoGm9OdFKkaXuhpH1XLe9qxsM1m7UXuETitO2xNLdu4g0CWnLEib5uQpxfAKe0psD9u3viemKzsanNs3TBQKL+Bdjb5V8ERmxwI/fxlemi3H/uJGvW6wd2e1IXMDTURNNKzgSH4UyqMFGST3zsYkOb+zOCr+kMGC1yYhPGujNh323lrVe3HOld7CYf6XzyFiKFKhHZx70fhVGLtOyqKdcX+y+hpOmRs4vleVWcYfhgahd+VLMSrps1Vub/7z0gXVbUZYZ4yLUJGmxXEAIG527oqYPTuCKgN59+qCtJ9vJvN2cpqgaKS2l4Bpgyu3Uep5dBAXVipOntwLPk6o8kJTCommFnghQxDj4EQI1ku4XU/PwORYlSuqi3XK7o/TVcG6ZqIB1sfQp0DxVGPLdfo/IUJkMMLI7PxNsYi8/JikdwVBgKQlZOXq4haQJF0uchinbabJlIpdyN95YUEAVkv7MRInWfPoXlvK3ckxY/XG3TZ1OSyEanyTls1ytsOK82SA0r7UPO8OLSfyXGlqxK+eWCUw3ZHPg+zqLuAm3DAqGWtQYWiCE89i/h/NtkynlCKWdiB2DjbPHJP50Ds6sA3X1hZeDI23MrLeVvSbqiFG+sATCcor2LPRIo2F6SMD+qfbYl3vMYDrQbqVVLNEMU2RIIAmucU7XJ6+WosKIIdzcbFi8kY6YlRnxFkje9kZj0RDNOqAnYhYpPg+6Emay5diZ/y62hOdK/Kj+BnworluJtMHYb9Xk7+Pi2MyQaDERZmlgsE/vbh47tu269vhqlJX8lGsLX/n+7qr0cCkl4kraXHFBUPZtQbf2tRVp6FzAlBGpZdggXUtJLD+N3yZjRT1g+ifnCKVqhRgmVLQmUGfCbfY5oiAGb7JE5bioHjZLdG/2m9UzzADd38Q7zboP8VhNb3gDTIpGjDhsOdhRfMWNY7T/BhSM+5dCDuPYkbq3Oj9A5D0p9Ppscpw6MhRnJR+XGAuQA/dsNbMfIMqrJYexa2J5dk/f+bDcFCLR1bVL1G4MwlWfY/IrKWy1LVZVmnpX5syoVH8vgivhcRo2Fh5mNsHX21TD5bN1tvGpSWmwVhQxiGfIrMOFJOODgF/Q775H7dTm24JqjF7v0qEaAHoHo82f0AgO40Rf6b5rRpZjP1gr6xjMKZv5eG0X9NHF0GNrniWInk22x8Zw77qrhe3r6K62WspEAFi6ekRyXY4kotzcfF7lbT/s5Prj8p7L0BPWcKISu4NFLG1BFqrHDa12px2ppTcKvBmaouBB7XExFjvvsNzX/JT962XxlmYiz3Ufh8n64jebj0LF6BBYvrVIRv4+ANWmUd5/Js81sOdd8vgSB1eDeH+9HssitenJWkLUwjpL5C4QXzfVJuuIAeawviJyzmAaFkMzrvaIe8Nzz29UOsTGHBHk+cYnndWJ4wpdhVp1UHp3713n1RDOlYwYBr4pkZ8S9Rz4JIV8mK1USTIceSqCt1fwQw5UWDV8r4CXjnNUB58pyHErT13ZVatZt4VQ4EEXp+mTl2GGRpTtKmTfKvbz3cmbslxX63CgcsP8Kigls6QZrlY0ld/mbcxP4Cr5JE/x22zZX9+bnB9RmN4tA+LsXS6ggZ5IQOmuD6GNXEnHNRN/409jiTXWpfVUyczPG3zHEbVsb7/FYIkFKgAdCg3hNnIZFzg0Iw6HH6QkDPzwmUECdpP/vNMWwdYwUtoe/1cd3IuODJ4zhB8s1STuyFqwoIgMV1Jhw6kHiXq2xVk1s7iHS03WYif8ciVFniVIggi2n2ZNk3xcgiSOh0Qv/AOZDYEcG+6BOkITNzQHqCqsQYDzguT3AqVC3wPgamhzmbJgWyi0e7kUjm6xYt2ZhCy4hhmKHfiFphkqu7j749Ga7vv/4weF/9+mZP8pPQnLlu/uGQfL7hFpoJdcyFNbnlH/3D1xRGxVUZRtyhsjmD1MH0x+qYmenDKenzngrcD9L8rHwHhjyWYr360kKOCJ/arJo+DUPaCxTM/OT7lpysrb2ei7wKN/hoM0zn0Cd8Nqawj/87zX6QrQ+4FzC+O+oq/ngYy7RxqR+00qvdmWo/CTa1EOzawG3n/u8En9SYZwqZ+DRL6wFHUimDd1KaXFx7az02IMlrgQRzqQAAAAAAAAAAA=") center top / 2.2em no-repeat;
+  color: var(--chalk-warm);
+  text-shadow: 0 0 18px rgba(255,210,63,.65), 3px 3px 0 rgba(0,0,0,.55);
+  animation: verdictWin 2.1s var(--ease-pop) both;
+}
+@keyframes verdictWin {
+  0%       { opacity: 0; scale: .2; rotate: -25deg }
+  16%      { opacity: 1; scale: 1.25; rotate: 6deg }
+  28%      { scale: .95; rotate: -2deg }
+  38%, 76% { opacity: 1; scale: 1; rotate: 0deg; translate: -50% -50% }
+  100%     { opacity: 0; scale: .85; translate: -50% -95% }
+}
+/* Raté : le coup de tampon du maître, à l'encre rouge. */
+.verdict.lose, .verdict.late {
+  padding: .32em .55em .26em;
+  color: var(--rage);
+  border: .13em solid currentColor;
+  border-radius: .28em;
+  outline: .05em solid currentColor;
+  outline-offset: .14em;
+  background: rgba(24, 8, 10, .62);
+  rotate: -9deg;
+  animation: verdictStamp 2s cubic-bezier(.2, .9, .3, 1) both;
+}
+.verdict.late { color: #ff9d3d; }
+@keyframes verdictStamp {
+  0%       { opacity: 0; scale: 2.6; rotate: -22deg }
+  14%      { opacity: 1; scale: .9; rotate: -9deg }
+  22%      { scale: 1.05 }
+  30%, 78% { opacity: 1; scale: 1 }
+  100%     { opacity: 0; scale: 1 }
+}
+
 /* Pastilles des joueurs qui ont buzzé sur cette réponse */
 .buzzers { position: absolute; top: calc(-1 * var(--cadre) - 9px); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; }
 .buzz-dot {
@@ -859,14 +959,22 @@ body {
   line-height: 1;
   color: #3b2714;
 }
-.desk.gain { animation: deskGain .5s var(--ease-pop); }
+.desk.gain { animation: deskGain .6s var(--ease-pop); }
 @keyframes deskGain {
   0% { transform: none }
-  35% { transform: translateY(-11px) scale(1.07) }
+  35% { transform: translateY(-15px) scale(1.1);
+        filter: drop-shadow(0 4px 0 var(--pc)) drop-shadow(0 0 20px var(--pc)) }
 }
+/* Au piquet : le pupitre encaisse le coup avant de s'affaisser. */
 .desk.stunned {
   filter: drop-shadow(0 4px 0 var(--pc));
   transform: translateY(7px) rotate(-1.4deg);
+  animation: deskStun .5s ease-out;
+}
+@keyframes deskStun {
+  0%  { transform: none }
+  25% { transform: translateY(12px) rotate(2.4deg) }
+  50% { transform: translateY(4px) rotate(-3deg) }
 }
 .desk.stunned::after {
   content: 'AU PIQUET';
@@ -1135,8 +1243,6 @@ button { touch-action: manipulation; }
   line-height: 1.5;
   text-align: center;
 }
-.join-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-.join-actions .btn-ghost { font-family: system-ui, sans-serif; font-size: 15px; min-height: 40px; color: var(--chalk); }
 button.slot { color: inherit; font: inherit; cursor: pointer; }
 .slot:hover { border-color: var(--chalk); }
 .session-preview { color: var(--chalk-cyan); font-size: clamp(13px, 1.05vw, 16px); line-height: 1.4; }
@@ -1152,6 +1258,34 @@ button.slot { color: inherit; font: inherit; cursor: pointer; }
   padding: 7px 14px; cursor: pointer; min-height: 42px;
 }
 .btn-pause small { display: block; font-weight: 400; font-size: 11px; color: var(--chalk-dim); }
+
+/* ─── Plein écran : dans le coin du tableau, sur tous les écrans ─────
+   Hors de #stage et au-dessus du cadre : ni la pause ni le gros plan du
+   maître ne le recouvrent. Discret tant qu'on ne le vise pas. */
+.btn-fullscreen {
+  position: fixed; z-index: 60;
+  top: calc(clamp(10px, 1.3vw, 22px) + 8px);
+  right: calc(clamp(10px, 1.3vw, 22px) + 8px);
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  padding: 0;
+  color: var(--chalk);
+  background: rgba(10,20,17,.5);
+  border: 2px solid rgba(242,239,224,.35);
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: .7;
+  transition: opacity .15s, border-color .15s;
+}
+.btn-fullscreen:hover, .btn-fullscreen:focus-visible, .pad-navigation .btn-fullscreen:focus { opacity: 1; border-color: var(--chalk); }
+.btn-fullscreen svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+}
+.btn-fullscreen .fs-exit, .btn-fullscreen[aria-pressed="true"] .fs-enter { display: none; }
+.btn-fullscreen[aria-pressed="true"] .fs-exit { display: inline; }
+/* En partie, le bouton Pause se range à gauche du coin. */
+body:has(.btn-fullscreen:not([hidden])) .hud-right { margin-right: 46px; }
 .pause-veil {
   display: none; position: fixed; inset: 0; z-index: 100;
   background: #142b22; align-items: center; justify-content: center;
@@ -1271,6 +1405,15 @@ button.slot { color: inherit; font: inherit; cursor: pointer; }
 <canvas id="fx-canvas" aria-hidden="true"></canvas>
 <div id="flash" aria-hidden="true"></div>
 
+<!-- Plein écran, dans le coin du tableau. Hors de #stage : il reste au-dessus
+     de la pause et du maître. Caché là où le navigateur ne sait pas le faire. -->
+<button class="btn-fullscreen" id="btn-fullscreen" type="button" aria-pressed="false" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path class="fs-enter" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>
+    <path class="fs-exit" d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/>
+  </svg>
+</button>
+
 <main id="stage">
 
   <!-- ══════════════════ ACCUEIL ══════════════════ -->
@@ -1333,9 +1476,12 @@ button.slot { color: inherit; font: inherit; cursor: pointer; }
         <h2 class="panel-title" id="h-classe"><b>3</b> Les élèves</h2>
         <div class="join-row" id="join-row" aria-label="Joueurs"><!-- pupitres injectés par JS --></div>
         <p class="join-hint" id="join-hint" aria-live="polite"></p>
-        <div class="join-actions">
-          <button class="btn-ghost" id="btn-solo">Jouer à la souris ou au toucher</button>
-          <button class="btn-ghost" id="btn-keyboard">Ajouter un joueur au clavier</button>
+        <!-- Le choix à la main, pour les cas qui sortent de l'ordinaire : il
+             n'apparaît qu'en cliquant un pupitre. Boutons injectés par JS. -->
+        <div class="device-picker" id="device-picker" hidden>
+          <p class="picker-title" id="picker-title"></p>
+          <div class="picker-options" id="picker-options" role="group" aria-labelledby="picker-title"></div>
+          <p class="picker-note" id="picker-note"></p>
         </div>
       </section>
     </div>
@@ -1371,7 +1517,7 @@ button.slot { color: inherit; font: inherit; cursor: pointer; }
       <p class="custom-preview" id="custom-preview"></p>
     </div>
 
-    <button class="btn-start" id="btn-start" disabled>
+    <button class="btn-start" id="btn-start">
       <span>Commencer la partie</span>
       <small>Start / Entrée</small>
     </button>
@@ -1422,6 +1568,8 @@ button.slot { color: inherit; font: inherit; cursor: pointer; }
       <button class="ans ans-left"  data-slot="1"><span class="ans-val"></span><em class="ans-btn">□ / X</em></button>
       <button class="ans ans-right" data-slot="2"><span class="ans-val"></span><em class="ans-btn">○ / B</em></button>
       <button class="ans ans-down"  data-slot="3"><span class="ans-val"></span><em class="ans-btn">✕ / A</em></button>
+      <!-- Le tampon du verdict, au centre, posé à la révélation seulement -->
+      <div class="verdict" id="verdict" aria-hidden="true"></div>
     </div>
 
     <footer class="desks" id="desks"><!-- pupitres injectés --></footer>
@@ -1604,12 +1752,14 @@ MX.Audio = (function () {
   }
 
   /* ─── Parole ────────────────────────────────────────────────────── */
+  /* Débits modérés : la colère du maître porte aussi le rappel « sept fois
+     huit, cinquante-six », qu'un enfant doit pouvoir suivre. */
   const MOODS = {
-    calm:  { rate: 1.0,  pitch: 1.0,  volume: 1 },   // énoncé de la question
-    quiz:  { rate: 1.12, pitch: 1.05, volume: 1 },   // rythme un peu pressé
-    angry: { rate: 1.38, pitch: 0.55, volume: 1 },   // le maître hurle
-    sly:   { rate: 0.86, pitch: 1.35, volume: 1 },   // le maître prépare un sale coup
-    proud: { rate: 1.0,  pitch: 1.18, volume: 1 },
+    calm:  { rate: 0.95, pitch: 1.0,  volume: 1 },   // énoncé de la question
+    quiz:  { rate: 1.02, pitch: 1.05, volume: 1 },   // rythme à peine pressé
+    angry: { rate: 1.2,  pitch: 0.55, volume: 1 },   // le maître hurle
+    sly:   { rate: 0.84, pitch: 1.35, volume: 1 },   // le maître prépare un sale coup
+    proud: { rate: 0.95, pitch: 1.18, volume: 1 },
   };
 
   /* `say` dit le texte tel quel : c'est à qui le compose d'écrire les
@@ -1648,12 +1798,20 @@ MX.Audio = (function () {
     return src;
   }
 
-  function tone(freq, dur, type, vol, slideTo) {
+  /* `wobble` (Hz) : la note tremble, comme une voix qui se lamente. */
+  function tone(freq, dur, type, vol, slideTo, wobble) {
     if (!ctx) return;
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type || 'sine';
     o.frequency.setValueAtTime(freq, ctx.currentTime);
     if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), ctx.currentTime + dur);
+    if (wobble) {
+      const lfo = ctx.createOscillator(), depth = ctx.createGain();
+      lfo.frequency.value = wobble;
+      depth.gain.value = freq * 0.035;
+      lfo.connect(depth); depth.connect(o.frequency);
+      lfo.start(); lfo.stop(ctx.currentTime + dur + 0.02);
+    }
     g.gain.setValueAtTime(0, ctx.currentTime);
     g.gain.linearRampToValueAtTime(vol == null ? 0.3 : vol, ctx.currentTime + 0.008);
     g.gain.exponentialRampToValueAtTime(0.0008, ctx.currentTime + dur);
@@ -1668,12 +1826,28 @@ MX.Audio = (function () {
       tone(520, 0.07, 'square', 0.16);
       setTimeout(() => tone(760, 0.06, 'square', 0.13), 45);
     },
-    /** Bonne réponse : quinte montante joyeuse. */
-    ding() {
+    /** La manche est gagnée : arpège qui monte, accord qui éclate, étincelle. */
+    win() {
       if (!ctx) return;
-      tone(784, 0.18, 'sine', 0.26);
-      setTimeout(() => tone(1175, 0.3, 'sine', 0.22), 70);
-      setTimeout(() => tone(1568, 0.4, 'triangle', 0.12), 140);
+      [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.14, 'square', 0.09), i * 65));
+      setTimeout(() => {
+        tone(1047, 0.55, 'triangle', 0.22);
+        tone(1319, 0.5, 'sine', 0.13);
+        tone(1568, 0.6, 'sine', 0.1);
+      }, 195);
+      setTimeout(() => tone(2093, 0.3, 'sine', 0.07, 3136), 330);
+    },
+    /** La manche est perdue : « wah wah wah waaah », la dernière note traîne
+        et tremble. `short` : les deux dernières seulement, pour le sprint. */
+    lose(short) {
+      if (!ctx) return;
+      const notes = short ? [208, 196] : [233, 220, 208, 196];
+      const step = short ? 0.17 : 0.22;
+      notes.forEach((f, i) => setTimeout(() => {
+        const last = i === notes.length - 1, dur = last ? (short ? 0.5 : 0.85) : step;
+        tone(f, dur, 'sawtooth', 0.15, last ? f * 0.9 : f * 0.97, last ? 6 : 0);
+        tone(f / 2, dur, 'triangle', 0.16, last ? f * 0.45 : 0);
+      }, i * step * 1000));
     },
     /** Erreur : klaxon rageur. */
     wrong() {
@@ -1810,6 +1984,30 @@ MX.FX = (function () {
     }
   }
 
+  /** Étoiles dorées qui jaillissent de la bonne ardoise : la manche est gagnée. */
+  function stars(x, y, count) {
+    for (let i = 0; i < (count || 10); i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(160, 460);
+      spawn({
+        kind: 'star',
+        x, y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 160,
+        r: rand(7, 15), ang: rand(0, 6.3), spin: rand(-6, 6),
+        life: 1, decay: rand(0.55, 0.9),
+        col: pick(['#ffd23f', '#ffe27a', '#f2efe0']),
+      });
+    }
+  }
+
+  function starPath(r) {
+    cx.beginPath();
+    for (let k = 0; k < 10; k++) {
+      const rr = k % 2 ? r * 0.45 : r, a = -Math.PI / 2 + k * Math.PI / 5;
+      cx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    cx.closePath();
+  }
+
   function loop(t) {
     const dt = 1 / 60;
     cx.clearRect(0, 0, W, H);
@@ -1839,6 +2037,15 @@ MX.FX = (function () {
         cx.moveTo(p.x, p.y);
         cx.lineTo(p.x + Math.cos(p.ang) * p.len * p.life, p.y + Math.sin(p.ang) * p.len * p.life);
         cx.stroke();
+      } else if (p.kind === 'star') {
+        p.vy += 420 * dt; p.vx *= 0.98; p.ang += p.spin * dt;
+        cx.globalAlpha = Math.min(1, p.life * 1.5);
+        cx.fillStyle = p.col;
+        cx.save();
+        cx.translate(p.x, p.y); cx.rotate(p.ang);
+        starPath(p.r * (0.6 + 0.4 * p.life));
+        cx.fill();
+        cx.restore();
       } else {
         p.vy += 900 * dt; p.vx *= 0.99; p.ang += p.spin * dt;
         cx.globalAlpha = Math.min(1, p.life * 1.6);
@@ -1877,7 +2084,7 @@ MX.FX = (function () {
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
 
-  return { init, chalkDust, shards, confetti, shake, flash, centerOf };
+  return { init, chalkDust, shards, confetti, stars, shake, flash, centerOf };
 })();
 </script>
 <script data-source="js/operations.js">
@@ -2950,12 +3157,13 @@ MX.Input = (function () {
   /* Une « manette clavier » par joueur : 4 touches en losange.
      On lit event.key pour les lettres (indépendant du layout AZERTY /
      QWERTY) et event.code pour le pavé numérique (sinon la rangée de
-     chiffres du haut déclencherait aussi). */
+     chiffres du haut déclencherait aussi). Les flèches viennent en tête :
+     c'est le pupitre du joueur seul, celui qu'on prend sans rien choisir. */
   const KB_LAYOUTS = [
-    { label: 'Z Q D S',        keys: { z: 0, q: 1, d: 2, s: 3 } },
-    { label: 'I J L K',        keys: { i: 0, j: 1, l: 2, k: 3 } },
     { label: 'Flèches',        keys: { arrowup: 0, arrowleft: 1, arrowright: 2, arrowdown: 3 } },
-    { label: 'Pavé num 8 4 6 2 (ou T F H G)', keys: { t: 0, f: 1, h: 2, g: 3 },
+    { label: 'Z Q S D',        keys: { z: 0, q: 1, d: 2, s: 3 } },
+    { label: 'I J K L',        keys: { i: 0, j: 1, l: 2, k: 3 } },
+    { label: 'Pavé num. (ou T F G H)', keys: { t: 0, f: 1, h: 2, g: 3 },
       codes: { Numpad8: 0, Numpad4: 1, Numpad6: 2, Numpad2: 3 } },
   ];
 
@@ -2978,7 +3186,7 @@ MX.Input = (function () {
 
   function deviceLabel(d) {
     if (d.type === 'pad') return 'Manette ' + (d.index + 1);
-    if (d.type === 'pointer') return 'Souris / tactile';
+    if (d.type === 'pointer') return 'Souris / toucher';
     return 'Clavier · ' + KB_LAYOUTS[d.layout].label;
   }
 
@@ -2989,12 +3197,14 @@ MX.Input = (function () {
 
   function isTaken(d) { return !!findPlayer(d); }
 
+  function isValid(d) {
+    return !!d && (d.type === 'pointer'
+      || (d.type === 'pad' && Number.isInteger(d.index) && d.index >= 0)
+      || (d.type === 'kb' && Number.isInteger(d.layout) && !!KB_LAYOUTS[d.layout]));
+  }
+
   function joinDevice(device) {
-    if (mode !== 'lobby' || !device) return null;
-    const valid = device.type === 'pointer'
-      || (device.type === 'pad' && Number.isInteger(device.index) && device.index >= 0)
-      || (device.type === 'kb' && Number.isInteger(device.layout) && !!KB_LAYOUTS[device.layout]);
-    if (!valid) return null;
+    if (mode !== 'lobby' || !isValid(device)) return null;
     const existing = findPlayer(device);
     if (existing) return existing;
     if (players.length >= 4) return null;
@@ -3002,6 +3212,30 @@ MX.Input = (function () {
     players.push(p);
     if (cbJoin) cbJoin(p);
     return p;
+  }
+
+  /** Le joueur garde sa place et sa couleur, et prend un périphérique libre. */
+  function reassign(id, device) {
+    if (mode !== 'lobby' || !isValid(device)) return null;
+    const p = players.find(x => x.id === id);
+    if (!p) return null;
+    const owner = findPlayer(device);
+    if (owner) return owner === p ? p : null;
+    p.device = { ...device };
+    return p;
+  }
+
+  /* La souris n'a pas besoin d'inscription : elle répond pour le joueur
+     inscrit à la souris seule, sinon pour le premier joueur au clavier —
+     clavier et souris sont sur la même table —, à défaut pour le premier. */
+  function mousePlayer() {
+    return players.find(p => p.device.type === 'pointer')
+      || players.find(p => p.device.type === 'kb') || players[0] || null;
+  }
+
+  function playerLabel(p) {
+    const label = deviceLabel(p.device);
+    return p.device.type === 'kb' && mousePlayer() === p ? label + ' + souris' : label;
   }
 
   function removePlayer(id) {
@@ -3026,7 +3260,9 @@ MX.Input = (function () {
     }
   }
 
-  function handleStart() { if (cbStart) cbStart(); }
+  /* `device` : la manette qui a appuyé sur Start. Le clavier ne se nomme
+     pas — Entrée n'appartient à aucun pupitre. */
+  function handleStart(device) { if (cbStart) cbStart(device); }
   function handleMenu(action, device) { if (cbMenu) cbMenu(action, device); }
 
   function isControl(target) {
@@ -3133,7 +3369,7 @@ MX.Input = (function () {
       const device = { type: 'pad', index: i };
       // On mémorise TOUS les fronts avant de notifier main.js : un callback
       // peut changer d'écran. Le même appui ne doit pas traverser cet écran.
-      if (edges.some(b => PAD_START.includes(b))) pending.push(() => handleStart());
+      if (edges.some(b => PAD_START.includes(b))) pending.push(() => handleStart(device));
       else if (frameMode === 'play') {
         const button = edges.find(b => PAD_FACE[b] != null || PAD_DPAD[b] != null);
         const slot = button == null ? (stickEdge ? dir : null)
@@ -3175,7 +3411,7 @@ MX.Input = (function () {
     for (const prev of Object.values(padPrev)) prev._menuUsed = false;
   }
 
-  /** Liste des périphériques encore libres, pour l'affichage du lobby. */
+  /** Liste des périphériques encore libres, pour le choix du lobby. */
   function freeDevices() {
     const out = [];
     const pads = readPads();
@@ -3184,6 +3420,7 @@ MX.Input = (function () {
         out.push({ type: 'pad', index: i });
     for (let L = 0; L < KB_LAYOUTS.length; L++)
       if (!isTaken({ type: 'kb', layout: L })) out.push({ type: 'kb', layout: L });
+    if (!isTaken({ type: 'pointer' })) out.push({ type: 'pointer' });
     return out;
   }
 
@@ -3195,7 +3432,8 @@ MX.Input = (function () {
   }
 
   return {
-    start, reset, joinDevice, removePlayer, deviceLabel, freeDevices, padCount,
+    start, reset, joinDevice, reassign, removePlayer, deviceLabel, playerLabel, mousePlayer,
+    freeDevices, padCount,
     padStatus() { readPads(); return padsStatus; },
     KB_LAYOUTS,
     get players() { return players; },
@@ -3331,6 +3569,8 @@ MX.Game = (function () {
 
   const P_COLORS = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)'];
   const P_NAMES  = ['Élève 1', 'Élève 2', 'Élève 3', 'Élève 4'];
+  // Le tampon qui tombe au milieu du losange à la révélation (cf. `resolve`).
+  const VERDICTS = { win: 'BRAVO !', lose: 'RATÉ !', late: 'TROP TARD !' };
 
   /* Tous les réglages sont ici, et tous peuvent être pilotés depuis
      l'écran d'accueil (presets ou personnalisé). */
@@ -3423,7 +3663,7 @@ MX.Game = (function () {
      le temps de LIRE la correction même quand la voix est coupée dans les
      réglages ; un plafond, parce que SpeechSynthesis n'émet pas toujours son
      évènement « end ». */
-  const SPEECH_CAP = 7000;
+  const SPEECH_CAP = 8500;
   function speakThen(text, tone, minMs, done) {
     const t0 = sceneNow(), version = sceneVersion;
     let fired = false;
@@ -3494,6 +3734,7 @@ MX.Game = (function () {
       name: P_NAMES[i],
       color: P_COLORS[i],
       device: p.device,
+      label: p.label || MX.Input.deviceLabel(p.device),   // « Clavier · Flèches + souris »
       score: 0,
       right: 0, wrong: 0, none: 0,
       streak: 0, bestStreak: 0,
@@ -3526,7 +3767,7 @@ MX.Game = (function () {
       d.style.setProperty('--pc', p.color);
       d.innerHTML = `<span class="desk-id">
                        <span class="desk-name">${p.name}</span>
-                       <span class="desk-keys">${MX.Input.deviceLabel(p.device)}</span>
+                       <span class="desk-keys">${p.label}</span>
                      </span>
                      <span class="desk-score">0</span>
                      <span class="streak"></span>`;
@@ -3543,7 +3784,7 @@ MX.Game = (function () {
     const l = Teach.line(cfg.faits ? 'introRevision' : sprint() ? 'introSprint' : 'intro');
     A.sfx.slam();
     FX.shake('m');
-    burst(l.shout, 'rage', l.speech, 'angry', 1200,
+    burst(l.shout, 'rage', l.speech, 'angry', 1500,
           () => { hideBurst(); nextRound(); });
   }
 
@@ -3589,8 +3830,11 @@ MX.Game = (function () {
     $('#round-feedback').textContent = '';
     $('#round-feedback').classList.remove('show');
     $$('.float-pts').forEach(el => el.remove());
+    $('#verdict').className = 'verdict';
+    $('#verdict').textContent = '';
+    $('#diamond').classList.remove('verdict-win', 'verdict-lose');
     $$('.ans').forEach(el => {
-      el.classList.remove('reveal-good', 'reveal-bad', 'locked', 'hit', 'op-mode', 'sign-mode');
+      el.classList.remove('reveal-good', 'reveal-bad', 'locked', 'hit', 'op-mode', 'sign-mode', 'chosen');
       el.querySelector('.ans-val').textContent = '';
       const b = el.querySelector('.buzzers');
       if (b) b.remove();
@@ -3610,8 +3854,8 @@ MX.Game = (function () {
     // La question n'apparaît qu'une fois l'annonce dite en entier : sinon le
     // chrono démarre pendant que la voix parle encore, et l'énoncé se fait
     // couvrir par l'annonce de la chausse-trappe.
-    if (trap.voice) speakThen(trap.voice, 'sly', 1250, showQuestion);
-    else later(1250, showQuestion);
+    if (trap.voice) speakThen(trap.voice, 'sly', 1600, showQuestion);
+    else later(1600, showQuestion);
   }
 
   function showQuestion() {
@@ -3825,12 +4069,13 @@ MX.Game = (function () {
 
     // Révélation : c'est ICI, et nulle part avant, que le juste et le faux
     // se voient. Tout le monde a fini de répondre, plus personne ne peut
-    // recopier.
+    // recopier. Le son et le tampon du verdict viennent plus bas, avec l'issue.
+    let bonneCase = null;
     $$('.ans').forEach(el => {
       const ch = q.choices[+el.dataset.slot];
       el.classList.add(ch.correct ? 'reveal-good' : 'reveal-bad', 'locked');
+      if (ch.correct) bonneCase = el;
     });
-    A.sfx.ding();          // la cloche désigne la bonne case, pas un joueur
     $('#timer-fill').style.transform = 'scaleX(0)';
     if (sprint()) $('#round-now').textContent = horloge(resteSprint());
 
@@ -3888,13 +4133,31 @@ MX.Game = (function () {
           // Le piquet, la casse et le klaxon arrivent à la révélation : avant,
           // ils désignaient la mauvaise case à tous les autres.
           $('#desk-' + p.id).classList.add('stunned');
-          const c = FX.centerOf($(`.ans[data-slot="${slot}"]`));
+          const faux = $(`.ans[data-slot="${slot}"]`);
+          faux.classList.add('chosen');           // l'ardoise choisie à tort vacille
+          const c = FX.centerOf(faux);
           FX.shards(c.x, c.y, 16, '#ff2b45');
         }
       }
       // La série en cours, sur le pupitre : visible seulement à la révélation.
       $('#desk-' + p.id).querySelector('.streak').textContent = p.streak >= 2 ? 'série ' + p.streak : '';
     });
+
+    // Le verdict, au son et à l'œil. Il dit l'issue de la CLASSE : la bonne
+    // case se montre toujours, mais une manche ratée ne sonne jamais comme
+    // une victoire — la fanfare par-dessus l'échec disait « bravo » à tort.
+    const someoneWrong = players.some(p => answers[p.id] != null && !q.choices[answers[p.id]].correct);
+    const personne = players.every(p => answers[p.id] == null);
+    // Le tampon commun ne tombe que sur une issue partagée par tous : quand
+    // les uns trouvent et les autres non, les pupitres disent qui a quoi.
+    const verdict = outcome === 'right' ? (someoneMissed ? null : 'win') : personne ? 'late' : 'lose';
+    $('#diamond').classList.add(outcome === 'right' ? 'verdict-win' : 'verdict-lose');
+    if (verdict) {
+      const v = $('#verdict');
+      v.textContent = VERDICTS[verdict];
+      v.className = 'verdict ' + verdict;
+    }
+    const ici = FX.centerOf(bonneCase);
 
     // Réaction du maître
     let cat, mood, tone;
@@ -3903,23 +4166,26 @@ MX.Game = (function () {
       const veryFast = w && w.ms != null && w.ms < roundDurFull * 0.32;
       cat = veryFast ? 'fast' : 'good';
       mood = 'pleased'; tone = 'proud';
+      A.sfx.win();
       FX.flash('good');
-      FX.confetti(window.innerWidth / 2, window.innerHeight * 0.62, 34);
-    } else if (outcome === 'allwrong') {
-      // Seul, « TOUS FAUX ! » ne s'adresse à personne : c'est une erreur ordinaire.
-      cat = players.length > 1 ? 'allWrong' : 'wrong';
-      mood = 'rage'; tone = 'angry';
-      FX.flash(); FX.shake('l'); A.sfx.slam();
+      FX.confetti(ici.x, ici.y, someoneMissed ? 26 : 48);
+      FX.stars(ici.x, ici.y, someoneMissed ? 6 : 12);
     } else {
-      cat = 'timeout'; mood = 'dead'; tone = 'angry';
-      FX.shake('m'); A.sfx.slam();
+      // Seul, « TOUS FAUX ! » ne s'adresse à personne : c'est une erreur ordinaire.
+      if (outcome === 'allwrong') { cat = players.length > 1 ? 'allWrong' : 'wrong'; mood = 'rage'; }
+      else { cat = 'timeout'; mood = 'dead'; }
+      tone = 'angry';
+      A.sfx.lose(sprint());      // le sprint n'a pas le temps d'une longue plainte
+      A.sfx.slam();
+      FX.flash();
+      FX.shake(outcome === 'allwrong' ? 'l' : 'm');
     }
 
     // Quelqu'un s'est trompé alors qu'un autre a trouvé → klaxon quand même,
-    // et une fois sur deux le maître préfère engueuler plutôt que féliciter.
-    const someoneWrong = players.some(p => answers[p.id] != null && !q.choices[answers[p.id]].correct);
+    // APRÈS la fanfare et non dessous, et une fois sur deux le maître préfère
+    // engueuler plutôt que féliciter.
     if (outcome === 'right' && someoneWrong) {
-      A.sfx.wrong(); FX.shake('s');
+      later(380, () => { A.sfx.wrong(); FX.shake('s'); });
       if (Math.random() < 0.5) { cat = 'wrong'; mood = 'rage'; tone = 'angry'; }
     }
     Teach.setMood($('#teacher-slot'), mood);
@@ -3928,8 +4194,8 @@ MX.Game = (function () {
     // coin, et la voix ne redit le calcul que s'il a été raté — c'est le
     // seul moment où le rythme doit céder à la mémorisation.
     if (sprint()) {
-      if (someoneMissed) speakThen(Teach.rappel(q), 'calm', 1500, nextRound);
-      else later(550, nextRound);
+      if (someoneMissed) speakThen(Teach.rappel(q), 'calm', 1900, nextRound);
+      else later(750, nextRound);
       return;
     }
 
@@ -3941,8 +4207,8 @@ MX.Game = (function () {
     // Puis on attend qu'il ait FINI sa phrase, plutôt qu'un délai en dur :
     // elle contient le rappel « sept fois huit, cinquante-six », qui est la
     // raison d'être de tout cet écran.
-    const REVEAL = someoneMissed ? 1000 : 600;
-    const RANT_MIN = someoneMissed ? 1800 : 1050;
+    const REVEAL = someoneMissed ? 1300 : 800;
+    const RANT_MIN = someoneMissed ? 2300 : 1400;
     later(REVEAL, () => burst(l.shout, mood, l.speech, tone, RANT_MIN,
                               () => { hideBurst(); nextRound(); }));
   }
@@ -4120,6 +4386,8 @@ MX.Game = (function () {
   let screen = 'title';
   let audioReady = false;
   let menuDevice = null;
+  let picker = null;               // { id, nouveau } : le pupitre dont on choisit le périphérique
+  let inscriptionMuette = false;   // le joueur ajouté par « Commencer » : pas de craie sur l'accueil qui s'en va
   let previewKey = '';
   let preview = { texte: '', nbFaits: 0 };
   let ratesDuJour = [];            // calculs ratés dans la partie qui vient de finir
@@ -4133,9 +4401,11 @@ MX.Game = (function () {
      panneau ne propose que 0, 18, 42… : aucun bouton ne s'allumait et on
      ne voyait plus où on en était. */
   const OPT = {
-    time:   { lent: 8000, pose: 6500, normal: 5500, vif: 4200, eclair: 3000 },
+    // Le temps de LIRE l'énoncé, de l'ENTENDRE dit en entier, puis de
+    // répondre : un cinquième plus court, le jeu filait trop vite.
+    time:   { lent: 10000, pose: 8000, normal: 6500, vif: 5000, eclair: 3500 },
     traps:  { aucune: 0, rares: 0.18, normales: 0.42, souvent: 0.55, partout: 0.75 },
-    grace:  { aucun: 0, court: 1000, moyen: 1500, long: 2500 },
+    grace:  { aucun: 0, court: 1200, moyen: 1800, long: 3000 },
     hole:   { jamais: 0, parfois: 0.2, souvent: 1 / 3 },
     rounds: [10, 15, 25],          // leçon : nombre de questions
     sprint: [60, 90, 120],         // sprint : secondes avant la cloche
@@ -4298,7 +4568,12 @@ MX.Game = (function () {
     }
   }
 
-  /* ─── Pupitres d'inscription ────────────────────────────────────── */
+  /* ─── Pupitres d'inscription ────────────────────────────────────────
+     L'inscription se fait d'elle-même : une touche de son pupitre, un
+     bouton de sa manette — ou rien du tout pour le joueur seul, que
+     « Commencer » inscrit. Cliquer un pupitre ouvre le choix À LA MAIN,
+     pour ce qui sort de l'ordinaire : un joueur à la souris seule, telle
+     manette sur tel pupitre, un changement, un retrait. */
   function buildJoinSlots() {
     const row = $('#join-row');
     row.innerHTML = '';
@@ -4313,39 +4588,102 @@ MX.Game = (function () {
                       <span class="slot-state">libre</span>
                       <span class="slot-dev"></span>`;
       row.appendChild(el);
-      el.addEventListener('click', () => {
+      el.addEventListener('click', event => {
         unlockAudio();
-        if (In.players[i]) {
-          In.removePlayer(i);
-        } else {
-          const device = menuDevice || In.freeDevices().find(d => d.type === 'kb');
-          if (device) In.joinDevice(device);
-        }
-        refreshJoinSlots();
+        // Une manette pas encore inscrite qui valide un pupitre vide le prend.
+        const pad = menuDevice && menuDevice.type === 'pad' && !In.players[i]
+          && In.freeDevices().some(d => d.type === 'pad' && d.index === menuDevice.index);
+        if (pad) { In.joinDevice(menuDevice); return; }
+        const clavier = !event.detail;     // activé au clavier ou à la manette, pas à la souris
+        if (picker && picker.id === Math.min(i, In.players.length)) closePicker(clavier ? i : null);
+        else openPicker(i, clavier);
+        if (!clavier) el.blur();           // Entrée doit continuer à lancer la partie
       });
     }
   }
 
   function refreshJoinSlots() {
+    const n = In.players.length;
     for (let i = 0; i < 4; i++) {
       const el = $('#slot-' + i);
       const p = In.players[i];
       el.classList.toggle('joined', !!p);
-      el.querySelector('.slot-state').textContent = p ? 'PRÊT' : 'libre';
-      el.querySelector('.slot-dev').textContent = p ? In.deviceLabel(p.device) : '';
-      el.setAttribute('aria-label', p ? `Retirer le joueur ${i + 1}, ${In.deviceLabel(p.device)}` : 'Ajouter un joueur');
-      el.title = p ? 'Cliquer pour retirer ce joueur' : 'Cliquer pour ajouter un joueur au clavier';
+      el.querySelector('.slot-state').textContent = p ? 'PRÊT' : i === n ? '+ ajouter' : 'libre';
+      el.querySelector('.slot-dev').textContent = p ? In.playerLabel(p) : '';
+      el.setAttribute('aria-label', p ? `Élève ${i + 1}, ${In.playerLabel(p)} : changer ou retirer` : 'Ajouter un élève');
+      el.title = p ? 'Changer de manette ou de touches, ou retirer cet élève' : 'Choisir à la main avec quoi joue un nouvel élève';
     }
-    const n = In.players.length;
-    $('#btn-start').disabled = n === 0;
     $('#join-hint').innerHTML = n === 0
-      ? 'Seul : « Jouer à la souris ». À plusieurs : <b>A / Croix</b> sur ta manette, ou une touche de ton pupitre.'
+      ? 'Seul : « Commencer », et l\'on répond avec les <b>flèches</b> ou la <b>souris</b>.' +
+        '<br>À plusieurs : chacun appuie sur <b>sa manette</b> ou <b>ses touches</b> (Z Q S D, I J K L…).'
       : n < 4
-        ? `${n} élève${n > 1 ? 's' : ''} en classe. Les autres peuvent encore s'inscrire.`
-        : 'Classe complète ! En place !';
-    $('#btn-keyboard').disabled = n >= 4 || !In.freeDevices().some(d => d.type === 'kb');
-    $('#btn-solo').disabled = n >= 4 && !In.players.some(p => p.device.type === 'pointer');
-    $('#btn-solo').textContent = n ? 'Ajouter la souris / le toucher' : 'Jouer à la souris ou au toucher';
+        ? `${n} élève${n > 1 ? 's' : ''} en classe. Les autres : un bouton de manette ou une touche de leur pupitre.` +
+          '<br>Un pupitre cliqué change de manette ou de touches.'
+        : 'Classe complète ! Un pupitre cliqué change de manette ou de touches.';
+    renderPicker();
+  }
+
+  /* ─── Le choix à la main ───────────────────────────────────────────── */
+  /* Au clavier et à la manette, le focus suit le choix : il entre dans les
+     options, puis revient au pupitre. À la souris, on ne le pose nulle part. */
+  function openPicker(i, focus) {
+    const nouveau = !In.players[i];
+    picker = { id: nouveau ? In.players.length : i, nouveau };
+    renderPicker();
+    const first = $('#picker-options button');
+    if (focus && first) first.focus({ preventScroll: true });
+    $('#device-picker').scrollIntoView({ block: 'nearest' });
+  }
+
+  /** Ferme le choix ; `focusSlot` rend la main au pupitre (clavier, manette). */
+  function closePicker(focusSlot) {
+    picker = null;
+    renderPicker();
+    if (focusSlot != null) $('#slot-' + Math.min(focusSlot, 3)).focus({ preventScroll: true });
+  }
+
+  function renderPicker() {
+    // Un nouvel élève prend toujours la place suivante : elle bouge si
+    // quelqu'un s'inscrit d'un bouton pendant que le choix est ouvert.
+    if (picker && picker.nouveau) picker.id = In.players.length;
+    if (picker && (picker.id > 3 || (!picker.nouveau && !In.players[picker.id]))) picker = null;
+    $('#device-picker').hidden = !picker;
+    $$('.slot').forEach((el, i) => el.classList.toggle('picking', !!picker && picker.id === i));
+    if (!picker) return;
+
+    const p = In.players[picker.id], num = picker.id + 1;
+    $('#device-picker').style.setProperty('--pc', `var(--p${num})`);
+    $('#picker-title').textContent = p
+      ? `Élève ${num} joue avec : ${In.playerLabel(p)}. Changer pour…`
+      : `Élève ${num} joue avec…`;
+    const box = $('#picker-options');
+    box.innerHTML = '';
+    // Chaque option agit, puis ferme le choix en rendant le focus au pupitre
+    // — au clavier et à la manette seulement (cf. `openPicker`).
+    const option = (text, cls, action) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip wide' + (cls ? ' ' + cls : '');
+      b.textContent = text;
+      b.addEventListener('click', event => {
+        unlockAudio();
+        const id = picker.id;
+        action();
+        closePicker(event.detail ? null : id);
+        refreshJoinSlots();
+      });
+      box.appendChild(b);
+    };
+    for (const d of In.freeDevices()) {
+      option(In.deviceLabel(d), '', () => {
+        if (p) { In.reassign(p.id, d); A.sfx.buzz(); }
+        else In.joinDevice(d);           // onJoin fait le bruit et la craie
+      });
+    }
+    if (p) option(`Retirer l'élève ${num}`, 'retire', () => In.removePlayer(p.id));
+    option('Fermer', 'ferme', () => {});
+    $('#picker-note').textContent = In.padCount() ? ''
+      : 'Une manette ? Appuie sur un de ses boutons : elle apparaît, et s\'inscrit d\'elle-même.';
   }
 
   /* ─── Un groupe de boutons exclusifs ────────────────────────────── */
@@ -4505,9 +4843,9 @@ MX.Game = (function () {
 
     /* ── Réglages fins ── */
     seg('#seg-time', [
-      { v: OPT.time.lent, t: '8 s' }, { v: OPT.time.pose, t: '6,5 s' },
-      { v: OPT.time.normal, t: '5,5 s' }, { v: OPT.time.vif, t: '4,2 s' },
-      { v: OPT.time.eclair, t: '3 s' },
+      { v: OPT.time.lent, t: '10 s' }, { v: OPT.time.pose, t: '8 s' },
+      { v: OPT.time.normal, t: '6,5 s' }, { v: OPT.time.vif, t: '5 s' },
+      { v: OPT.time.eclair, t: '3,5 s' },
     ], () => state.timeBase, v => tweak('timeBase', v));
 
     seg('#seg-mix', [
@@ -4524,9 +4862,9 @@ MX.Game = (function () {
 
     seg('#seg-grace', [
       { v: OPT.grace.aucun, t: 'Aucun', title: 'Le premier qui répond met fin à la question' },
-      { v: OPT.grace.court, t: 'Court', title: '1 seconde pour les autres' },
-      { v: OPT.grace.moyen, t: 'Moyen', title: '1,5 seconde pour les autres' },
-      { v: OPT.grace.long,  t: 'Long',  title: '2,5 secondes pour les autres' },
+      { v: OPT.grace.court, t: 'Court', title: '1,2 seconde pour les autres' },
+      { v: OPT.grace.moyen, t: 'Moyen', title: '1,8 seconde pour les autres' },
+      { v: OPT.grace.long,  t: 'Long',  title: '3 secondes pour les autres' },
     ], () => state.graceMs, v => tweak('graceMs', v));
 
     seg('#seg-sens', [
@@ -4618,7 +4956,7 @@ MX.Game = (function () {
   }
 
   function refreshLegend() {
-    const kb = In.KB_LAYOUTS.map((l, i) => `<b>P${i + 1}</b> ${l.label}`).join(' · ');
+    const kb = In.KB_LAYOUTS.map(l => `<b>${l.label}</b>`).join(' · ');
     const pads = In.padCount();
 
     // L'API manette exige un contexte sécurisé. Ouvert par double-clic, le
@@ -4634,23 +4972,35 @@ MX.Game = (function () {
     voix.textContent = state.voice ? A.voiceStatus() : 'coupée';
     $('#keys-legend').innerHTML =
       padLine +
-      `<br>Claviers : ${kb}` +
+      `<br>Claviers, un pupitre par joueur : ${kb}` +
+      `<br>Souris ou toucher : répond pour le premier joueur au clavier, ou pour l'élève inscrit à la souris seule.` +
       `<br>Menus : Tab et Entrée au clavier ; croix / stick et A / Croix à la manette. Pause : Échap / Start.` +
       `<br>Voix : `;
     $('#keys-legend').appendChild(voix);
   }
 
   /* ─── Lancement d'une partie ────────────────────────────────────── */
+  /* Personne d'inscrit : on ne demande rien, on joue. Le joueur seul prend
+     les flèches, et la souris répond pour lui (`In.mousePlayer`). Lancé
+     par une manette, il joue avec elle ; sur un écran tactile sans souris,
+     au toucher — son pupitre dit alors la vérité sur ses commandes. */
+  function joueurSeul(from) {
+    if (from && from.type === 'pad') return from;
+    const mm = (q) => !!(window.matchMedia && window.matchMedia(q).matches);
+    return mm('(any-pointer: coarse)') && !mm('(any-pointer: fine)') ? { type: 'pointer' } : { type: 'kb', layout: 0 };
+  }
+
   /* `faits` : une liste de clés de calculs fait de la partie une RÉVISION —
      ces calculs-là seulement (les premiers de la liste si elle est trop
-     longue), toujours en leçon, et assez longue pour que CHACUN soit posé. */
-  function launch(faits) {
+     longue), toujours en leçon, et assez longue pour que CHACUN soit posé.
+     `from` : la manette qui a demandé le lancement, s'il y en a une. */
+  function launch(faits, from) {
     if (!In.players.length) {
-      $('#join-hint').textContent = 'Inscris-toi avec une touche de ton pupitre, ou choisis « Jouer à la souris ».';
-      $('#btn-solo').focus();
-      return;
+      inscriptionMuette = true;
+      try { In.joinDevice(joueurSeul(from)); } finally { inscriptionMuette = false; }
     }
     unlockAudio();
+    closePicker();
     In.mode = 'play';
     const revision = Array.isArray(faits) && faits.length ? faits.slice(0, REVISION_MAX) : null;
     let rounds = state.rounds;
@@ -4670,7 +5020,7 @@ MX.Game = (function () {
       faits: revision,
       // Hors révision, le carnet glisse ses calculs dans le tirage normal.
       revoir: revision ? [] : Mem.cles(),
-    }, In.players);
+    }, In.players.map(p => ({ device: p.device, label: In.playerLabel(p) })));
     MX.UI.goto('game');
     G.begin();
   }
@@ -4680,11 +5030,14 @@ MX.Game = (function () {
   function navigateMenu(action, device) {
     if (device && device.type === 'pad') document.body.classList.add('pad-navigation');
     const scope = G.paused ? $('#pause-panel') : $('#screen-' + screen);
-    const buttons = $$('button:not(:disabled), summary', scope).filter(el => !el.closest('[inert]') && el.getClientRects().length);
+    // Le bouton plein écran vit hors des écrans, dans le coin : il en est.
+    const buttons = $$('button:not(:disabled), summary', scope).concat($('#btn-fullscreen'))
+      .filter(el => !el.hidden && !el.closest('[inert]') && el.getClientRects().length);
     if (!buttons.length) return;
     if (action === 'back') {
       if (G.paused) G.resume();
       else if (screen === 'end') backToMenu();
+      else if (picker) closePicker(picker.id);
       else if ($('#controls-help').open) $('#controls-help').open = false;
       else $('#btn-start').focus();
       return;
@@ -4733,8 +5086,9 @@ MX.Game = (function () {
   function wire() {
     In.onJoin(p => {
       unlockAudio();
-      A.sfx.buzz();
       refreshJoinSlots();
+      if (inscriptionMuette) return;
+      A.sfx.buzz();
       const el = $('#slot-' + p.id);
       const c = FX.centerOf(el);
       FX.chalkDust(c.x, c.y, 20, getComputedStyle(el).getPropertyValue('--pc').trim() || '#f2efe0');
@@ -4742,39 +5096,25 @@ MX.Game = (function () {
 
     In.onBuzz((pid, slot) => { unlockAudio(); G.onBuzz(pid, slot); });
 
-    In.onStart(() => {
+    In.onStart(device => {
       unlockAudio();
-      if (screen === 'title' || screen === 'end') launch();
+      if (screen === 'title' || screen === 'end') launch(undefined, device);
       else if (screen === 'game') G.togglePause();
     });
     In.onPause(() => {
       if (screen === 'game') G.togglePause();
       else if (screen === 'end') backToMenu();
+      else if (picker) closePicker(picker.id);
     });
     In.onMenu(navigateMenu);
 
-    $('#btn-start').addEventListener('click', () => launch());
+    // Comme « Commencer », réviser le carnet inscrit le joueur seul quand la
+    // classe est vide — avec la manette qui a validé, s'il y en a une.
+    $('#btn-start').addEventListener('click', () => launch(undefined, menuDevice));
     $('#btn-again').addEventListener('click', () => launch());
     $('#btn-review').addEventListener('click', () => launch(ratesDuJour));
     $('#btn-menu').addEventListener('click', backToMenu);
-    $('#btn-solo').addEventListener('click', () => {
-      const solo = In.players.length === 0;
-      In.joinDevice(menuDevice || { type: 'pointer' });
-      refreshJoinSlots();
-      if (solo) launch();
-    });
-    $('#btn-keyboard').addEventListener('click', () => {
-      const device = menuDevice || In.freeDevices().find(d => d.type === 'kb');
-      if (device) In.joinDevice(device);
-      refreshJoinSlots();
-    });
-    // Réviser le carnet : comme « Jouer à la souris », le bouton inscrit
-    // celui qui l'actionne quand la classe est vide.
-    $('#btn-carnet').addEventListener('click', () => {
-      if (!In.players.length) In.joinDevice(menuDevice || { type: 'pointer' });
-      refreshJoinSlots();
-      launch(Mem.cles());
-    });
+    $('#btn-carnet').addEventListener('click', () => launch(Mem.cles(), menuDevice));
     $('#btn-carnet-clear').addEventListener('click', () => {
       Mem.vider();
       refreshCarnet();
@@ -4797,18 +5137,19 @@ MX.Game = (function () {
       }
     });
 
-    // Souris : utile pour tester seul, ou pour un joueur sans manette.
-    // Un clic vaut un appui du joueur souris, à défaut du joueur 1.
+    // Souris et toucher : un clic vaut un appui du joueur à qui revient la
+    // souris (`In.mousePlayer` : le joueur souris, sinon le clavier).
     $$('.ans').forEach(el => {
       el.addEventListener('click', () => {
-        const pointer = In.players.find(p => p.device.type === 'pointer');
-        if (In.players.length) G.onBuzz(pointer ? pointer.id : 0, +el.dataset.slot);
+        const p = In.mousePlayer();
+        if (p) G.onBuzz(p.id, +el.dataset.slot);
       });
     });
 
-    window.addEventListener('gamepadconnected', () => { refreshLegend(); A.sfx.buzz(); });
+    window.addEventListener('gamepadconnected', () => { refreshLegend(); renderPicker(); A.sfx.buzz(); });
     window.addEventListener('gamepaddisconnected', event => {
       refreshLegend();
+      renderPicker();
       if (screen === 'game' && In.players.some(p => p.device.type === 'pad' && p.device.index === event.gamepad.index)) G.pause();
     });
     window.addEventListener('pointerdown', unlockAudio, { once: true });
@@ -4816,6 +5157,38 @@ MX.Game = (function () {
     window.addEventListener('keydown', () => document.body.classList.remove('pad-navigation'));
     if (window.speechSynthesis)
       window.speechSynthesis.addEventListener('voiceschanged', refreshLegend);
+  }
+
+  /* ─── Plein écran ───────────────────────────────────────────────────
+     Un bouton dans le coin du tableau, sur tous les écrans. Caché là où le
+     navigateur ne sait pas mettre une page en plein écran (iPhone) : un
+     bouton sans effet ferait douter des autres. */
+  function wireFullscreen() {
+    const btn = $('#btn-fullscreen'), root = document.documentElement;
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    const current = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+    if (!request || !exit || !(document.fullscreenEnabled || document.webkitFullscreenEnabled)) return;
+    const sync = () => {
+      const on = !!current();
+      btn.setAttribute('aria-pressed', String(on));
+      btn.title = on ? 'Quitter le plein écran' : 'Plein écran';
+      btn.setAttribute('aria-label', btn.title);
+    };
+    btn.addEventListener('click', event => {
+      unlockAudio();
+      try {
+        const done = current() ? exit.call(document) : request.call(root);
+        if (done && done.catch) done.catch(() => {});   // refusé : on reste comme on était
+      } catch (_) {}
+      // Après un clic souris, le focus ne reste pas ici : Entrée doit
+      // continuer à lancer la partie, pas rebasculer l'écran.
+      if (event.detail > 0) btn.blur();
+    });
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    btn.hidden = false;
+    sync();
   }
 
   /* ─── Démarrage ─────────────────────────────────────────────────── */
@@ -4827,6 +5200,7 @@ MX.Game = (function () {
     buildProgramme();
     buildSettings();
     wire();
+    wireFullscreen();
     refreshJoinSlots();
     refreshLegend();
     refreshAllSegs();

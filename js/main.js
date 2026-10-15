@@ -19,6 +19,8 @@
   let screen = 'title';
   let audioReady = false;
   let menuDevice = null;
+  let picker = null;               // { id, nouveau } : le pupitre dont on choisit le périphérique
+  let inscriptionMuette = false;   // le joueur ajouté par « Commencer » : pas de craie sur l'accueil qui s'en va
   let previewKey = '';
   let preview = { texte: '', nbFaits: 0 };
   let ratesDuJour = [];            // calculs ratés dans la partie qui vient de finir
@@ -32,9 +34,11 @@
      panneau ne propose que 0, 18, 42… : aucun bouton ne s'allumait et on
      ne voyait plus où on en était. */
   const OPT = {
-    time:   { lent: 8000, pose: 6500, normal: 5500, vif: 4200, eclair: 3000 },
+    // Le temps de LIRE l'énoncé, de l'ENTENDRE dit en entier, puis de
+    // répondre : un cinquième plus court, le jeu filait trop vite.
+    time:   { lent: 10000, pose: 8000, normal: 6500, vif: 5000, eclair: 3500 },
     traps:  { aucune: 0, rares: 0.18, normales: 0.42, souvent: 0.55, partout: 0.75 },
-    grace:  { aucun: 0, court: 1000, moyen: 1500, long: 2500 },
+    grace:  { aucun: 0, court: 1200, moyen: 1800, long: 3000 },
     hole:   { jamais: 0, parfois: 0.2, souvent: 1 / 3 },
     rounds: [10, 15, 25],          // leçon : nombre de questions
     sprint: [60, 90, 120],         // sprint : secondes avant la cloche
@@ -197,7 +201,12 @@
     }
   }
 
-  /* ─── Pupitres d'inscription ────────────────────────────────────── */
+  /* ─── Pupitres d'inscription ────────────────────────────────────────
+     L'inscription se fait d'elle-même : une touche de son pupitre, un
+     bouton de sa manette — ou rien du tout pour le joueur seul, que
+     « Commencer » inscrit. Cliquer un pupitre ouvre le choix À LA MAIN,
+     pour ce qui sort de l'ordinaire : un joueur à la souris seule, telle
+     manette sur tel pupitre, un changement, un retrait. */
   function buildJoinSlots() {
     const row = $('#join-row');
     row.innerHTML = '';
@@ -212,39 +221,102 @@
                       <span class="slot-state">libre</span>
                       <span class="slot-dev"></span>`;
       row.appendChild(el);
-      el.addEventListener('click', () => {
+      el.addEventListener('click', event => {
         unlockAudio();
-        if (In.players[i]) {
-          In.removePlayer(i);
-        } else {
-          const device = menuDevice || In.freeDevices().find(d => d.type === 'kb');
-          if (device) In.joinDevice(device);
-        }
-        refreshJoinSlots();
+        // Une manette pas encore inscrite qui valide un pupitre vide le prend.
+        const pad = menuDevice && menuDevice.type === 'pad' && !In.players[i]
+          && In.freeDevices().some(d => d.type === 'pad' && d.index === menuDevice.index);
+        if (pad) { In.joinDevice(menuDevice); return; }
+        const clavier = !event.detail;     // activé au clavier ou à la manette, pas à la souris
+        if (picker && picker.id === Math.min(i, In.players.length)) closePicker(clavier ? i : null);
+        else openPicker(i, clavier);
+        if (!clavier) el.blur();           // Entrée doit continuer à lancer la partie
       });
     }
   }
 
   function refreshJoinSlots() {
+    const n = In.players.length;
     for (let i = 0; i < 4; i++) {
       const el = $('#slot-' + i);
       const p = In.players[i];
       el.classList.toggle('joined', !!p);
-      el.querySelector('.slot-state').textContent = p ? 'PRÊT' : 'libre';
-      el.querySelector('.slot-dev').textContent = p ? In.deviceLabel(p.device) : '';
-      el.setAttribute('aria-label', p ? `Retirer le joueur ${i + 1}, ${In.deviceLabel(p.device)}` : 'Ajouter un joueur');
-      el.title = p ? 'Cliquer pour retirer ce joueur' : 'Cliquer pour ajouter un joueur au clavier';
+      el.querySelector('.slot-state').textContent = p ? 'PRÊT' : i === n ? '+ ajouter' : 'libre';
+      el.querySelector('.slot-dev').textContent = p ? In.playerLabel(p) : '';
+      el.setAttribute('aria-label', p ? `Élève ${i + 1}, ${In.playerLabel(p)} : changer ou retirer` : 'Ajouter un élève');
+      el.title = p ? 'Changer de manette ou de touches, ou retirer cet élève' : 'Choisir à la main avec quoi joue un nouvel élève';
     }
-    const n = In.players.length;
-    $('#btn-start').disabled = n === 0;
     $('#join-hint').innerHTML = n === 0
-      ? 'Seul : « Jouer à la souris ». À plusieurs : <b>A / Croix</b> sur ta manette, ou une touche de ton pupitre.'
+      ? 'Seul : « Commencer », et l\'on répond avec les <b>flèches</b> ou la <b>souris</b>.' +
+        '<br>À plusieurs : chacun appuie sur <b>sa manette</b> ou <b>ses touches</b> (Z Q S D, I J K L…).'
       : n < 4
-        ? `${n} élève${n > 1 ? 's' : ''} en classe. Les autres peuvent encore s'inscrire.`
-        : 'Classe complète ! En place !';
-    $('#btn-keyboard').disabled = n >= 4 || !In.freeDevices().some(d => d.type === 'kb');
-    $('#btn-solo').disabled = n >= 4 && !In.players.some(p => p.device.type === 'pointer');
-    $('#btn-solo').textContent = n ? 'Ajouter la souris / le toucher' : 'Jouer à la souris ou au toucher';
+        ? `${n} élève${n > 1 ? 's' : ''} en classe. Les autres : un bouton de manette ou une touche de leur pupitre.` +
+          '<br>Un pupitre cliqué change de manette ou de touches.'
+        : 'Classe complète ! Un pupitre cliqué change de manette ou de touches.';
+    renderPicker();
+  }
+
+  /* ─── Le choix à la main ───────────────────────────────────────────── */
+  /* Au clavier et à la manette, le focus suit le choix : il entre dans les
+     options, puis revient au pupitre. À la souris, on ne le pose nulle part. */
+  function openPicker(i, focus) {
+    const nouveau = !In.players[i];
+    picker = { id: nouveau ? In.players.length : i, nouveau };
+    renderPicker();
+    const first = $('#picker-options button');
+    if (focus && first) first.focus({ preventScroll: true });
+    $('#device-picker').scrollIntoView({ block: 'nearest' });
+  }
+
+  /** Ferme le choix ; `focusSlot` rend la main au pupitre (clavier, manette). */
+  function closePicker(focusSlot) {
+    picker = null;
+    renderPicker();
+    if (focusSlot != null) $('#slot-' + Math.min(focusSlot, 3)).focus({ preventScroll: true });
+  }
+
+  function renderPicker() {
+    // Un nouvel élève prend toujours la place suivante : elle bouge si
+    // quelqu'un s'inscrit d'un bouton pendant que le choix est ouvert.
+    if (picker && picker.nouveau) picker.id = In.players.length;
+    if (picker && (picker.id > 3 || (!picker.nouveau && !In.players[picker.id]))) picker = null;
+    $('#device-picker').hidden = !picker;
+    $$('.slot').forEach((el, i) => el.classList.toggle('picking', !!picker && picker.id === i));
+    if (!picker) return;
+
+    const p = In.players[picker.id], num = picker.id + 1;
+    $('#device-picker').style.setProperty('--pc', `var(--p${num})`);
+    $('#picker-title').textContent = p
+      ? `Élève ${num} joue avec : ${In.playerLabel(p)}. Changer pour…`
+      : `Élève ${num} joue avec…`;
+    const box = $('#picker-options');
+    box.innerHTML = '';
+    // Chaque option agit, puis ferme le choix en rendant le focus au pupitre
+    // — au clavier et à la manette seulement (cf. `openPicker`).
+    const option = (text, cls, action) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip wide' + (cls ? ' ' + cls : '');
+      b.textContent = text;
+      b.addEventListener('click', event => {
+        unlockAudio();
+        const id = picker.id;
+        action();
+        closePicker(event.detail ? null : id);
+        refreshJoinSlots();
+      });
+      box.appendChild(b);
+    };
+    for (const d of In.freeDevices()) {
+      option(In.deviceLabel(d), '', () => {
+        if (p) { In.reassign(p.id, d); A.sfx.buzz(); }
+        else In.joinDevice(d);           // onJoin fait le bruit et la craie
+      });
+    }
+    if (p) option(`Retirer l'élève ${num}`, 'retire', () => In.removePlayer(p.id));
+    option('Fermer', 'ferme', () => {});
+    $('#picker-note').textContent = In.padCount() ? ''
+      : 'Une manette ? Appuie sur un de ses boutons : elle apparaît, et s\'inscrit d\'elle-même.';
   }
 
   /* ─── Un groupe de boutons exclusifs ────────────────────────────── */
@@ -404,9 +476,9 @@
 
     /* ── Réglages fins ── */
     seg('#seg-time', [
-      { v: OPT.time.lent, t: '8 s' }, { v: OPT.time.pose, t: '6,5 s' },
-      { v: OPT.time.normal, t: '5,5 s' }, { v: OPT.time.vif, t: '4,2 s' },
-      { v: OPT.time.eclair, t: '3 s' },
+      { v: OPT.time.lent, t: '10 s' }, { v: OPT.time.pose, t: '8 s' },
+      { v: OPT.time.normal, t: '6,5 s' }, { v: OPT.time.vif, t: '5 s' },
+      { v: OPT.time.eclair, t: '3,5 s' },
     ], () => state.timeBase, v => tweak('timeBase', v));
 
     seg('#seg-mix', [
@@ -423,9 +495,9 @@
 
     seg('#seg-grace', [
       { v: OPT.grace.aucun, t: 'Aucun', title: 'Le premier qui répond met fin à la question' },
-      { v: OPT.grace.court, t: 'Court', title: '1 seconde pour les autres' },
-      { v: OPT.grace.moyen, t: 'Moyen', title: '1,5 seconde pour les autres' },
-      { v: OPT.grace.long,  t: 'Long',  title: '2,5 secondes pour les autres' },
+      { v: OPT.grace.court, t: 'Court', title: '1,2 seconde pour les autres' },
+      { v: OPT.grace.moyen, t: 'Moyen', title: '1,8 seconde pour les autres' },
+      { v: OPT.grace.long,  t: 'Long',  title: '3 secondes pour les autres' },
     ], () => state.graceMs, v => tweak('graceMs', v));
 
     seg('#seg-sens', [
@@ -517,7 +589,7 @@
   }
 
   function refreshLegend() {
-    const kb = In.KB_LAYOUTS.map((l, i) => `<b>P${i + 1}</b> ${l.label}`).join(' · ');
+    const kb = In.KB_LAYOUTS.map(l => `<b>${l.label}</b>`).join(' · ');
     const pads = In.padCount();
 
     // L'API manette exige un contexte sécurisé. Ouvert par double-clic, le
@@ -533,23 +605,35 @@
     voix.textContent = state.voice ? A.voiceStatus() : 'coupée';
     $('#keys-legend').innerHTML =
       padLine +
-      `<br>Claviers : ${kb}` +
+      `<br>Claviers, un pupitre par joueur : ${kb}` +
+      `<br>Souris ou toucher : répond pour le premier joueur au clavier, ou pour l'élève inscrit à la souris seule.` +
       `<br>Menus : Tab et Entrée au clavier ; croix / stick et A / Croix à la manette. Pause : Échap / Start.` +
       `<br>Voix : `;
     $('#keys-legend').appendChild(voix);
   }
 
   /* ─── Lancement d'une partie ────────────────────────────────────── */
+  /* Personne d'inscrit : on ne demande rien, on joue. Le joueur seul prend
+     les flèches, et la souris répond pour lui (`In.mousePlayer`). Lancé
+     par une manette, il joue avec elle ; sur un écran tactile sans souris,
+     au toucher — son pupitre dit alors la vérité sur ses commandes. */
+  function joueurSeul(from) {
+    if (from && from.type === 'pad') return from;
+    const mm = (q) => !!(window.matchMedia && window.matchMedia(q).matches);
+    return mm('(any-pointer: coarse)') && !mm('(any-pointer: fine)') ? { type: 'pointer' } : { type: 'kb', layout: 0 };
+  }
+
   /* `faits` : une liste de clés de calculs fait de la partie une RÉVISION —
      ces calculs-là seulement (les premiers de la liste si elle est trop
-     longue), toujours en leçon, et assez longue pour que CHACUN soit posé. */
-  function launch(faits) {
+     longue), toujours en leçon, et assez longue pour que CHACUN soit posé.
+     `from` : la manette qui a demandé le lancement, s'il y en a une. */
+  function launch(faits, from) {
     if (!In.players.length) {
-      $('#join-hint').textContent = 'Inscris-toi avec une touche de ton pupitre, ou choisis « Jouer à la souris ».';
-      $('#btn-solo').focus();
-      return;
+      inscriptionMuette = true;
+      try { In.joinDevice(joueurSeul(from)); } finally { inscriptionMuette = false; }
     }
     unlockAudio();
+    closePicker();
     In.mode = 'play';
     const revision = Array.isArray(faits) && faits.length ? faits.slice(0, REVISION_MAX) : null;
     let rounds = state.rounds;
@@ -569,7 +653,7 @@
       faits: revision,
       // Hors révision, le carnet glisse ses calculs dans le tirage normal.
       revoir: revision ? [] : Mem.cles(),
-    }, In.players);
+    }, In.players.map(p => ({ device: p.device, label: In.playerLabel(p) })));
     MX.UI.goto('game');
     G.begin();
   }
@@ -579,11 +663,14 @@
   function navigateMenu(action, device) {
     if (device && device.type === 'pad') document.body.classList.add('pad-navigation');
     const scope = G.paused ? $('#pause-panel') : $('#screen-' + screen);
-    const buttons = $$('button:not(:disabled), summary', scope).filter(el => !el.closest('[inert]') && el.getClientRects().length);
+    // Le bouton plein écran vit hors des écrans, dans le coin : il en est.
+    const buttons = $$('button:not(:disabled), summary', scope).concat($('#btn-fullscreen'))
+      .filter(el => !el.hidden && !el.closest('[inert]') && el.getClientRects().length);
     if (!buttons.length) return;
     if (action === 'back') {
       if (G.paused) G.resume();
       else if (screen === 'end') backToMenu();
+      else if (picker) closePicker(picker.id);
       else if ($('#controls-help').open) $('#controls-help').open = false;
       else $('#btn-start').focus();
       return;
@@ -632,8 +719,9 @@
   function wire() {
     In.onJoin(p => {
       unlockAudio();
-      A.sfx.buzz();
       refreshJoinSlots();
+      if (inscriptionMuette) return;
+      A.sfx.buzz();
       const el = $('#slot-' + p.id);
       const c = FX.centerOf(el);
       FX.chalkDust(c.x, c.y, 20, getComputedStyle(el).getPropertyValue('--pc').trim() || '#f2efe0');
@@ -641,39 +729,25 @@
 
     In.onBuzz((pid, slot) => { unlockAudio(); G.onBuzz(pid, slot); });
 
-    In.onStart(() => {
+    In.onStart(device => {
       unlockAudio();
-      if (screen === 'title' || screen === 'end') launch();
+      if (screen === 'title' || screen === 'end') launch(undefined, device);
       else if (screen === 'game') G.togglePause();
     });
     In.onPause(() => {
       if (screen === 'game') G.togglePause();
       else if (screen === 'end') backToMenu();
+      else if (picker) closePicker(picker.id);
     });
     In.onMenu(navigateMenu);
 
-    $('#btn-start').addEventListener('click', () => launch());
+    // Comme « Commencer », réviser le carnet inscrit le joueur seul quand la
+    // classe est vide — avec la manette qui a validé, s'il y en a une.
+    $('#btn-start').addEventListener('click', () => launch(undefined, menuDevice));
     $('#btn-again').addEventListener('click', () => launch());
     $('#btn-review').addEventListener('click', () => launch(ratesDuJour));
     $('#btn-menu').addEventListener('click', backToMenu);
-    $('#btn-solo').addEventListener('click', () => {
-      const solo = In.players.length === 0;
-      In.joinDevice(menuDevice || { type: 'pointer' });
-      refreshJoinSlots();
-      if (solo) launch();
-    });
-    $('#btn-keyboard').addEventListener('click', () => {
-      const device = menuDevice || In.freeDevices().find(d => d.type === 'kb');
-      if (device) In.joinDevice(device);
-      refreshJoinSlots();
-    });
-    // Réviser le carnet : comme « Jouer à la souris », le bouton inscrit
-    // celui qui l'actionne quand la classe est vide.
-    $('#btn-carnet').addEventListener('click', () => {
-      if (!In.players.length) In.joinDevice(menuDevice || { type: 'pointer' });
-      refreshJoinSlots();
-      launch(Mem.cles());
-    });
+    $('#btn-carnet').addEventListener('click', () => launch(Mem.cles(), menuDevice));
     $('#btn-carnet-clear').addEventListener('click', () => {
       Mem.vider();
       refreshCarnet();
@@ -696,18 +770,19 @@
       }
     });
 
-    // Souris : utile pour tester seul, ou pour un joueur sans manette.
-    // Un clic vaut un appui du joueur souris, à défaut du joueur 1.
+    // Souris et toucher : un clic vaut un appui du joueur à qui revient la
+    // souris (`In.mousePlayer` : le joueur souris, sinon le clavier).
     $$('.ans').forEach(el => {
       el.addEventListener('click', () => {
-        const pointer = In.players.find(p => p.device.type === 'pointer');
-        if (In.players.length) G.onBuzz(pointer ? pointer.id : 0, +el.dataset.slot);
+        const p = In.mousePlayer();
+        if (p) G.onBuzz(p.id, +el.dataset.slot);
       });
     });
 
-    window.addEventListener('gamepadconnected', () => { refreshLegend(); A.sfx.buzz(); });
+    window.addEventListener('gamepadconnected', () => { refreshLegend(); renderPicker(); A.sfx.buzz(); });
     window.addEventListener('gamepaddisconnected', event => {
       refreshLegend();
+      renderPicker();
       if (screen === 'game' && In.players.some(p => p.device.type === 'pad' && p.device.index === event.gamepad.index)) G.pause();
     });
     window.addEventListener('pointerdown', unlockAudio, { once: true });
@@ -715,6 +790,38 @@
     window.addEventListener('keydown', () => document.body.classList.remove('pad-navigation'));
     if (window.speechSynthesis)
       window.speechSynthesis.addEventListener('voiceschanged', refreshLegend);
+  }
+
+  /* ─── Plein écran ───────────────────────────────────────────────────
+     Un bouton dans le coin du tableau, sur tous les écrans. Caché là où le
+     navigateur ne sait pas mettre une page en plein écran (iPhone) : un
+     bouton sans effet ferait douter des autres. */
+  function wireFullscreen() {
+    const btn = $('#btn-fullscreen'), root = document.documentElement;
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    const current = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+    if (!request || !exit || !(document.fullscreenEnabled || document.webkitFullscreenEnabled)) return;
+    const sync = () => {
+      const on = !!current();
+      btn.setAttribute('aria-pressed', String(on));
+      btn.title = on ? 'Quitter le plein écran' : 'Plein écran';
+      btn.setAttribute('aria-label', btn.title);
+    };
+    btn.addEventListener('click', event => {
+      unlockAudio();
+      try {
+        const done = current() ? exit.call(document) : request.call(root);
+        if (done && done.catch) done.catch(() => {});   // refusé : on reste comme on était
+      } catch (_) {}
+      // Après un clic souris, le focus ne reste pas ici : Entrée doit
+      // continuer à lancer la partie, pas rebasculer l'écran.
+      if (event.detail > 0) btn.blur();
+    });
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    btn.hidden = false;
+    sync();
   }
 
   /* ─── Démarrage ─────────────────────────────────────────────────── */
@@ -726,6 +833,7 @@
     buildProgramme();
     buildSettings();
     wire();
+    wireFullscreen();
     refreshJoinSlots();
     refreshLegend();
     refreshAllSegs();

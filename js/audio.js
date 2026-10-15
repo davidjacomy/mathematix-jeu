@@ -52,12 +52,14 @@ MX.Audio = (function () {
   }
 
   /* ─── Parole ────────────────────────────────────────────────────── */
+  /* Débits modérés : la colère du maître porte aussi le rappel « sept fois
+     huit, cinquante-six », qu'un enfant doit pouvoir suivre. */
   const MOODS = {
-    calm:  { rate: 1.0,  pitch: 1.0,  volume: 1 },   // énoncé de la question
-    quiz:  { rate: 1.12, pitch: 1.05, volume: 1 },   // rythme un peu pressé
-    angry: { rate: 1.38, pitch: 0.55, volume: 1 },   // le maître hurle
-    sly:   { rate: 0.86, pitch: 1.35, volume: 1 },   // le maître prépare un sale coup
-    proud: { rate: 1.0,  pitch: 1.18, volume: 1 },
+    calm:  { rate: 0.95, pitch: 1.0,  volume: 1 },   // énoncé de la question
+    quiz:  { rate: 1.02, pitch: 1.05, volume: 1 },   // rythme à peine pressé
+    angry: { rate: 1.2,  pitch: 0.55, volume: 1 },   // le maître hurle
+    sly:   { rate: 0.84, pitch: 1.35, volume: 1 },   // le maître prépare un sale coup
+    proud: { rate: 0.95, pitch: 1.18, volume: 1 },
   };
 
   /* `say` dit le texte tel quel : c'est à qui le compose d'écrire les
@@ -96,12 +98,20 @@ MX.Audio = (function () {
     return src;
   }
 
-  function tone(freq, dur, type, vol, slideTo) {
+  /* `wobble` (Hz) : la note tremble, comme une voix qui se lamente. */
+  function tone(freq, dur, type, vol, slideTo, wobble) {
     if (!ctx) return;
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type || 'sine';
     o.frequency.setValueAtTime(freq, ctx.currentTime);
     if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), ctx.currentTime + dur);
+    if (wobble) {
+      const lfo = ctx.createOscillator(), depth = ctx.createGain();
+      lfo.frequency.value = wobble;
+      depth.gain.value = freq * 0.035;
+      lfo.connect(depth); depth.connect(o.frequency);
+      lfo.start(); lfo.stop(ctx.currentTime + dur + 0.02);
+    }
     g.gain.setValueAtTime(0, ctx.currentTime);
     g.gain.linearRampToValueAtTime(vol == null ? 0.3 : vol, ctx.currentTime + 0.008);
     g.gain.exponentialRampToValueAtTime(0.0008, ctx.currentTime + dur);
@@ -116,12 +126,28 @@ MX.Audio = (function () {
       tone(520, 0.07, 'square', 0.16);
       setTimeout(() => tone(760, 0.06, 'square', 0.13), 45);
     },
-    /** Bonne réponse : quinte montante joyeuse. */
-    ding() {
+    /** La manche est gagnée : arpège qui monte, accord qui éclate, étincelle. */
+    win() {
       if (!ctx) return;
-      tone(784, 0.18, 'sine', 0.26);
-      setTimeout(() => tone(1175, 0.3, 'sine', 0.22), 70);
-      setTimeout(() => tone(1568, 0.4, 'triangle', 0.12), 140);
+      [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.14, 'square', 0.09), i * 65));
+      setTimeout(() => {
+        tone(1047, 0.55, 'triangle', 0.22);
+        tone(1319, 0.5, 'sine', 0.13);
+        tone(1568, 0.6, 'sine', 0.1);
+      }, 195);
+      setTimeout(() => tone(2093, 0.3, 'sine', 0.07, 3136), 330);
+    },
+    /** La manche est perdue : « wah wah wah waaah », la dernière note traîne
+        et tremble. `short` : les deux dernières seulement, pour le sprint. */
+    lose(short) {
+      if (!ctx) return;
+      const notes = short ? [208, 196] : [233, 220, 208, 196];
+      const step = short ? 0.17 : 0.22;
+      notes.forEach((f, i) => setTimeout(() => {
+        const last = i === notes.length - 1, dur = last ? (short ? 0.5 : 0.85) : step;
+        tone(f, dur, 'sawtooth', 0.15, last ? f * 0.9 : f * 0.97, last ? 6 : 0);
+        tone(f / 2, dur, 'triangle', 0.16, last ? f * 0.45 : 0);
+      }, i * step * 1000));
     },
     /** Erreur : klaxon rageur. */
     wrong() {

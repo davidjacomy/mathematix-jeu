@@ -21,6 +21,8 @@ MX.Game = (function () {
 
   const P_COLORS = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)'];
   const P_NAMES  = ['Élève 1', 'Élève 2', 'Élève 3', 'Élève 4'];
+  // Le tampon qui tombe au milieu du losange à la révélation (cf. `resolve`).
+  const VERDICTS = { win: 'BRAVO !', lose: 'RATÉ !', late: 'TROP TARD !' };
 
   /* Tous les réglages sont ici, et tous peuvent être pilotés depuis
      l'écran d'accueil (presets ou personnalisé). */
@@ -113,7 +115,7 @@ MX.Game = (function () {
      le temps de LIRE la correction même quand la voix est coupée dans les
      réglages ; un plafond, parce que SpeechSynthesis n'émet pas toujours son
      évènement « end ». */
-  const SPEECH_CAP = 7000;
+  const SPEECH_CAP = 8500;
   function speakThen(text, tone, minMs, done) {
     const t0 = sceneNow(), version = sceneVersion;
     let fired = false;
@@ -184,6 +186,7 @@ MX.Game = (function () {
       name: P_NAMES[i],
       color: P_COLORS[i],
       device: p.device,
+      label: p.label || MX.Input.deviceLabel(p.device),   // « Clavier · Flèches + souris »
       score: 0,
       right: 0, wrong: 0, none: 0,
       streak: 0, bestStreak: 0,
@@ -216,7 +219,7 @@ MX.Game = (function () {
       d.style.setProperty('--pc', p.color);
       d.innerHTML = `<span class="desk-id">
                        <span class="desk-name">${p.name}</span>
-                       <span class="desk-keys">${MX.Input.deviceLabel(p.device)}</span>
+                       <span class="desk-keys">${p.label}</span>
                      </span>
                      <span class="desk-score">0</span>
                      <span class="streak"></span>`;
@@ -233,7 +236,7 @@ MX.Game = (function () {
     const l = Teach.line(cfg.faits ? 'introRevision' : sprint() ? 'introSprint' : 'intro');
     A.sfx.slam();
     FX.shake('m');
-    burst(l.shout, 'rage', l.speech, 'angry', 1200,
+    burst(l.shout, 'rage', l.speech, 'angry', 1500,
           () => { hideBurst(); nextRound(); });
   }
 
@@ -279,8 +282,11 @@ MX.Game = (function () {
     $('#round-feedback').textContent = '';
     $('#round-feedback').classList.remove('show');
     $$('.float-pts').forEach(el => el.remove());
+    $('#verdict').className = 'verdict';
+    $('#verdict').textContent = '';
+    $('#diamond').classList.remove('verdict-win', 'verdict-lose');
     $$('.ans').forEach(el => {
-      el.classList.remove('reveal-good', 'reveal-bad', 'locked', 'hit', 'op-mode', 'sign-mode');
+      el.classList.remove('reveal-good', 'reveal-bad', 'locked', 'hit', 'op-mode', 'sign-mode', 'chosen');
       el.querySelector('.ans-val').textContent = '';
       const b = el.querySelector('.buzzers');
       if (b) b.remove();
@@ -300,8 +306,8 @@ MX.Game = (function () {
     // La question n'apparaît qu'une fois l'annonce dite en entier : sinon le
     // chrono démarre pendant que la voix parle encore, et l'énoncé se fait
     // couvrir par l'annonce de la chausse-trappe.
-    if (trap.voice) speakThen(trap.voice, 'sly', 1250, showQuestion);
-    else later(1250, showQuestion);
+    if (trap.voice) speakThen(trap.voice, 'sly', 1600, showQuestion);
+    else later(1600, showQuestion);
   }
 
   function showQuestion() {
@@ -515,12 +521,13 @@ MX.Game = (function () {
 
     // Révélation : c'est ICI, et nulle part avant, que le juste et le faux
     // se voient. Tout le monde a fini de répondre, plus personne ne peut
-    // recopier.
+    // recopier. Le son et le tampon du verdict viennent plus bas, avec l'issue.
+    let bonneCase = null;
     $$('.ans').forEach(el => {
       const ch = q.choices[+el.dataset.slot];
       el.classList.add(ch.correct ? 'reveal-good' : 'reveal-bad', 'locked');
+      if (ch.correct) bonneCase = el;
     });
-    A.sfx.ding();          // la cloche désigne la bonne case, pas un joueur
     $('#timer-fill').style.transform = 'scaleX(0)';
     if (sprint()) $('#round-now').textContent = horloge(resteSprint());
 
@@ -578,13 +585,31 @@ MX.Game = (function () {
           // Le piquet, la casse et le klaxon arrivent à la révélation : avant,
           // ils désignaient la mauvaise case à tous les autres.
           $('#desk-' + p.id).classList.add('stunned');
-          const c = FX.centerOf($(`.ans[data-slot="${slot}"]`));
+          const faux = $(`.ans[data-slot="${slot}"]`);
+          faux.classList.add('chosen');           // l'ardoise choisie à tort vacille
+          const c = FX.centerOf(faux);
           FX.shards(c.x, c.y, 16, '#ff2b45');
         }
       }
       // La série en cours, sur le pupitre : visible seulement à la révélation.
       $('#desk-' + p.id).querySelector('.streak').textContent = p.streak >= 2 ? 'série ' + p.streak : '';
     });
+
+    // Le verdict, au son et à l'œil. Il dit l'issue de la CLASSE : la bonne
+    // case se montre toujours, mais une manche ratée ne sonne jamais comme
+    // une victoire — la fanfare par-dessus l'échec disait « bravo » à tort.
+    const someoneWrong = players.some(p => answers[p.id] != null && !q.choices[answers[p.id]].correct);
+    const personne = players.every(p => answers[p.id] == null);
+    // Le tampon commun ne tombe que sur une issue partagée par tous : quand
+    // les uns trouvent et les autres non, les pupitres disent qui a quoi.
+    const verdict = outcome === 'right' ? (someoneMissed ? null : 'win') : personne ? 'late' : 'lose';
+    $('#diamond').classList.add(outcome === 'right' ? 'verdict-win' : 'verdict-lose');
+    if (verdict) {
+      const v = $('#verdict');
+      v.textContent = VERDICTS[verdict];
+      v.className = 'verdict ' + verdict;
+    }
+    const ici = FX.centerOf(bonneCase);
 
     // Réaction du maître
     let cat, mood, tone;
@@ -593,23 +618,26 @@ MX.Game = (function () {
       const veryFast = w && w.ms != null && w.ms < roundDurFull * 0.32;
       cat = veryFast ? 'fast' : 'good';
       mood = 'pleased'; tone = 'proud';
+      A.sfx.win();
       FX.flash('good');
-      FX.confetti(window.innerWidth / 2, window.innerHeight * 0.62, 34);
-    } else if (outcome === 'allwrong') {
-      // Seul, « TOUS FAUX ! » ne s'adresse à personne : c'est une erreur ordinaire.
-      cat = players.length > 1 ? 'allWrong' : 'wrong';
-      mood = 'rage'; tone = 'angry';
-      FX.flash(); FX.shake('l'); A.sfx.slam();
+      FX.confetti(ici.x, ici.y, someoneMissed ? 26 : 48);
+      FX.stars(ici.x, ici.y, someoneMissed ? 6 : 12);
     } else {
-      cat = 'timeout'; mood = 'dead'; tone = 'angry';
-      FX.shake('m'); A.sfx.slam();
+      // Seul, « TOUS FAUX ! » ne s'adresse à personne : c'est une erreur ordinaire.
+      if (outcome === 'allwrong') { cat = players.length > 1 ? 'allWrong' : 'wrong'; mood = 'rage'; }
+      else { cat = 'timeout'; mood = 'dead'; }
+      tone = 'angry';
+      A.sfx.lose(sprint());      // le sprint n'a pas le temps d'une longue plainte
+      A.sfx.slam();
+      FX.flash();
+      FX.shake(outcome === 'allwrong' ? 'l' : 'm');
     }
 
     // Quelqu'un s'est trompé alors qu'un autre a trouvé → klaxon quand même,
-    // et une fois sur deux le maître préfère engueuler plutôt que féliciter.
-    const someoneWrong = players.some(p => answers[p.id] != null && !q.choices[answers[p.id]].correct);
+    // APRÈS la fanfare et non dessous, et une fois sur deux le maître préfère
+    // engueuler plutôt que féliciter.
     if (outcome === 'right' && someoneWrong) {
-      A.sfx.wrong(); FX.shake('s');
+      later(380, () => { A.sfx.wrong(); FX.shake('s'); });
       if (Math.random() < 0.5) { cat = 'wrong'; mood = 'rage'; tone = 'angry'; }
     }
     Teach.setMood($('#teacher-slot'), mood);
@@ -618,8 +646,8 @@ MX.Game = (function () {
     // coin, et la voix ne redit le calcul que s'il a été raté — c'est le
     // seul moment où le rythme doit céder à la mémorisation.
     if (sprint()) {
-      if (someoneMissed) speakThen(Teach.rappel(q), 'calm', 1500, nextRound);
-      else later(550, nextRound);
+      if (someoneMissed) speakThen(Teach.rappel(q), 'calm', 1900, nextRound);
+      else later(750, nextRound);
       return;
     }
 
@@ -631,8 +659,8 @@ MX.Game = (function () {
     // Puis on attend qu'il ait FINI sa phrase, plutôt qu'un délai en dur :
     // elle contient le rappel « sept fois huit, cinquante-six », qui est la
     // raison d'être de tout cet écran.
-    const REVEAL = someoneMissed ? 1000 : 600;
-    const RANT_MIN = someoneMissed ? 1800 : 1050;
+    const REVEAL = someoneMissed ? 1300 : 800;
+    const RANT_MIN = someoneMissed ? 2300 : 1400;
     later(REVEAL, () => burst(l.shout, mood, l.speech, tone, RANT_MIN,
                               () => { hideBurst(); nextRound(); }));
   }
