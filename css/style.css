@@ -1245,8 +1245,8 @@ button.slot { color: inherit; font: inherit; cursor: pointer; }
 }
 .version {
   position: fixed; right: var(--coin-x); bottom: var(--coin-y);
-  font-family: system-ui, sans-serif; font-size: 11px;
-  color: var(--chalk-dim); opacity: .6;
+  font-family: system-ui, sans-serif; font-size: 14px;
+  color: var(--chalk-dim);
   pointer-events: none;
 }
 /* Une version plus récente est en ligne : au même coin, mais qui se voit. */

@@ -9,7 +9,7 @@ window.MX = window.MX || {};
    publier.js la lit, et refuse de mettre en ligne un jeu changé sans qu'elle
    ait monté. majeur.mineur.correctif — le milieu pour une nouveauté côté
    joueur, le dernier pour une correction ou un réglage. */
-MX.VERSION = '0.1.0';
+MX.VERSION = '0.1.1';
 
 MX.U = (function () {
 
