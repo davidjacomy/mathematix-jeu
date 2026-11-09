@@ -5,6 +5,12 @@
    ══════════════════════════════════════════════════════════════════ */
 window.MX = window.MX || {};
 
+/* La version du jeu, écrite ici et nulle part ailleurs : l'accueil l'affiche,
+   publier.js la lit, et refuse de mettre en ligne un jeu changé sans qu'elle
+   ait monté. majeur.mineur.correctif — le milieu pour une nouveauté côté
+   joueur, le dernier pour une correction ou un réglage. */
+MX.VERSION = '0.1.0';
+
 MX.U = (function () {
 
   const $  = (sel, root) => (root || document).querySelector(sel);

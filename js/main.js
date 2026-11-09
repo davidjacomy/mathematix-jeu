@@ -712,6 +712,7 @@
     refreshLegend();
     refreshPreview();
     refreshCarnet();
+    chercherMiseAJour();
     MX.UI.goto('title');
   }
 
@@ -841,12 +842,62 @@
     $('#teacher-slot').innerHTML = Teach.portrait();
     $('#burst-face').innerHTML = Teach.portrait();
     $('#title-teacher').innerHTML = Teach.portrait();
+    $('#version').textContent = 'v' + MX.VERSION;
     In.mode = 'lobby';
     In.start();
     MX.UI.goto('title');
     $('#pause-veil').inert = true;
     setTimeout(refreshLegend, 900);   // les voix arrivent parfois en retard
     appliInstallable();
+    surveillerMiseAJour();
+  }
+
+  /* ─── Une version plus récente est en ligne ─────────────────────────
+     Un jeu resté ouvert — l'appli installée surtout — ne se recharge pas de
+     lui-même : il jouerait des jours sur une vieille version. À chaque retour
+     sur le jeu ou sur l'accueil, et de loin en loin, on relit la version
+     publiée (là où elle est écrite, js/util.js) ; différente de celle qui
+     tourne, l'accueil propose la mise à jour. Jamais en file:// : rien à
+     relire à côté d'un fichier, et le navigateur le signalerait en rouge. */
+  const VEILLE_MAJ = 30 * 60 * 1000;
+  let versionEnLigne = null;
+
+  function chercherMiseAJour() {
+    if (location.protocol === 'file:' || versionEnLigne) return;
+    fetch('js/util.js', { cache: 'no-store' })
+      .then(r => (r.ok ? r.text() : ''))
+      .then(source => {
+        const trouve = source.match(/^MX\.VERSION = '([\d.]+)';/m);
+        if (!trouve || trouve[1] === MX.VERSION) return;
+        versionEnLigne = trouve[1];
+        $('#btn-update').textContent = `Mise à jour disponible — v${versionEnLigne}`;
+        $('#btn-update').hidden = false;
+        $('#version').hidden = true;
+      })
+      .catch(() => {});   // sans connexion : on y reviendra
+  }
+
+  /* Le navigateur garde chaque fichier du site quelques minutes : rechargée
+     telle quelle, la page reviendrait à moitié ancienne. On redemande donc
+     d'abord au réseau la page, ses scripts et sa feuille de style. */
+  function mettreAJour() {
+    const bouton = $('#btn-update');
+    bouton.disabled = true;
+    bouton.textContent = 'Mise à jour…';
+    const fichiers = [location.href, ...$$('script[src]').map(s => s.src), ...$$('link[rel="stylesheet"]').map(l => l.href)]
+      .filter(u => new URL(u).origin === location.origin);
+    Promise.all(fichiers.map(u => fetch(u, { cache: 'reload' })))
+      .catch(() => {})
+      .then(() => location.reload());
+  }
+
+  function surveillerMiseAJour() {
+    $('#btn-update').addEventListener('click', mettreAJour);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') chercherMiseAJour();
+    });
+    setInterval(chercherMiseAJour, VEILLE_MAJ);
+    chercherMiseAJour();
   }
 
   /* ─── L'appli installable, jouable sans connexion ───────────────────

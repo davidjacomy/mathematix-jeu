@@ -1251,6 +1251,30 @@ button.slot { color: inherit; font: inherit; cursor: pointer; }
 .controls-help p { margin-top: 10px; }
 .keys-legend { font-family: system-ui, sans-serif; font-size: 14px; color: var(--chalk-dim); line-height: 1.7; }
 .keys-legend b { color: var(--chalk-warm); }
+/* La version, dans le coin bas de l'accueil : fixe par rapport à #stage, donc
+   en place même quand l'accueil défile, et absente des autres écrans. Le
+   cadre en bois et son rebord de craie passent au-dessus du jeu : le coin
+   s'en écarte, comme le bouton plein écran. */
+.version, .btn-update {
+  --coin-x: calc(clamp(10px, 1.3vw, 22px) + 8px);
+  --coin-y: calc(clamp(10px, 1.3vw, 22px) + clamp(6px, .9vh, 13px) + 4px);
+}
+.version {
+  position: fixed; right: var(--coin-x); bottom: var(--coin-y);
+  font-family: system-ui, sans-serif; font-size: 11px;
+  color: var(--chalk-dim); opacity: .6;
+  pointer-events: none;
+}
+/* Une version plus récente est en ligne : au même coin, mais qui se voit. */
+.btn-update {
+  position: fixed; right: var(--coin-x); bottom: var(--coin-y); z-index: 5;
+  font-family: system-ui, sans-serif; font-weight: 650; font-size: 14px;
+  color: var(--slate-0); background: var(--chalk-warm);
+  border: 0; border-radius: 999px;
+  padding: 8px 16px; min-height: 40px; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,.45);
+}
+.btn-update:disabled { opacity: .7; cursor: default; }
 .btn-pause {
   font-family: system-ui, sans-serif; font-weight: 650; font-size: 15px;
   color: var(--chalk); background: rgba(10,20,17,.5);
@@ -1534,6 +1558,11 @@ body:has(.btn-fullscreen:not([hidden])) .hud-right { margin-right: 46px; }
       <p>Choisis la réponse à la même place que ton bouton : haut, gauche, droite ou bas. Une seule réponse par question. La correction arrive quand tout le monde a répondu ou quand le temps est écoulé.</p>
       <p class="keys-legend" id="keys-legend"></p>
     </details>
+
+    <!-- La version du jeu, dans le coin : écrite par js/main.js. Le bouton la
+         remplace quand une version plus récente est en ligne. -->
+    <p class="version" id="version"></p>
+    <button class="btn-update" id="btn-update" type="button" hidden></button>
   </section>
 
   <!-- ══════════════════ PARTIE ══════════════════ -->
@@ -1622,6 +1651,12 @@ MX.IMG = {
    en double-clic sur le fichier, en file://.
    ══════════════════════════════════════════════════════════════════ */
 window.MX = window.MX || {};
+
+/* La version du jeu, écrite ici et nulle part ailleurs : l'accueil l'affiche,
+   publier.js la lit, et refuse de mettre en ligne un jeu changé sans qu'elle
+   ait monté. majeur.mineur.correctif — le milieu pour une nouveauté côté
+   joueur, le dernier pour une correction ou un réglage. */
+MX.VERSION = '0.1.0';
 
 MX.U = (function () {
 
@@ -2489,7 +2524,9 @@ MX.Ops = (function () {
       favorise les opérations faciles, parce qu'il en existe beaucoup plus
       (toutes les combinaisons avec 2, 5 ou 10 contre celles de 6, 7 et 8).
       On classe donc chaque fait par difficulté et on tire d'abord un
-      NIVEAU, puis un fait dans ce niveau.
+      NIVEAU, puis un fait dans ce niveau. Un niveau pèse selon le dosage
+      choisi et selon son nombre de faits, plafonné : ni un fait isolé sur
+      son niveau, ni un niveau pléthorique ne monopolise le tirage.
 
    2. Un énoncé ne se répète pas dans une partie. La seule répétition
       voulue est la révision d'un fait raté — et elle revient sous une
@@ -2526,15 +2563,23 @@ MX.Questions = (function () {
 
   const KINDS = ['result', 'hole', 'intruder', 'sign'];
 
-  /* Combien chaque NIVEAU pèse dans le tirage. Ce sont des poids par
-     niveau, pas par opération : le nombre d'opérations d'un niveau
-     n'influence donc pas son poids — « équilibré » donne le même poids
-     de départ à chaque niveau présent. */
+  /* Combien chaque fait d'un NIVEAU pèse dans le tirage, selon le dosage
+     choisi. Un niveau pèse ensuite ce poids fois son nombre de faits,
+     plafonné (cf. PLEIN). */
   const MIX_WEIGHT = {
     facile:    (d) => 1 / (1 + d * d * 0.1),
     equilibre: ()  => 1,
     dur:       (d) => 1 + d * d * 0.1,
   };
+
+  /* Un niveau compte pour son nombre de faits, jusqu'à ce plafond.
+     • En dessous, c'est ce qui empêche un fait SEUL sur son niveau de
+       revenir à chaque partie : à poids égal par niveau, 3 × 3 (seul de sa
+       difficulté) sortait quatre fois plus que 8 × 9 (huit à la sienne).
+     • Au-dessus, un niveau très fourni ne pèse pas davantage : sans plafond,
+       les centaines d'additions à retenue de « jusqu'à 100 » étoufferaient
+       les quelques calculs faciles, et « faciles d'abord » n'en poserait plus. */
+  const PLEIN = 8;
 
   /* ─── Les FORMES d'un fait ──────────────────────────────────────────
      Une forme est un énoncé affichable, identifié par le texte exact qui
@@ -2706,7 +2751,7 @@ MX.Questions = (function () {
         // Un niveau dont toutes les opérations sont déjà tombées pèse
         // beaucoup moins. Ce frein fait travailler des faits nouveaux sans
         // laisser « faciles d'abord » monopoliser le tirage avec ×10 et ×2.
-        const p = w(d) / (1 + min * 1.8);
+        const p = w(d) * Math.min(g.byDiff[d].length, PLEIN) / (1 + min * 1.8);
         total += p;
         cands.push({ p, liste });
       }
@@ -5079,6 +5124,7 @@ MX.Game = (function () {
     refreshLegend();
     refreshPreview();
     refreshCarnet();
+    chercherMiseAJour();
     MX.UI.goto('title');
   }
 
@@ -5208,12 +5254,62 @@ MX.Game = (function () {
     $('#teacher-slot').innerHTML = Teach.portrait();
     $('#burst-face').innerHTML = Teach.portrait();
     $('#title-teacher').innerHTML = Teach.portrait();
+    $('#version').textContent = 'v' + MX.VERSION;
     In.mode = 'lobby';
     In.start();
     MX.UI.goto('title');
     $('#pause-veil').inert = true;
     setTimeout(refreshLegend, 900);   // les voix arrivent parfois en retard
     appliInstallable();
+    surveillerMiseAJour();
+  }
+
+  /* ─── Une version plus récente est en ligne ─────────────────────────
+     Un jeu resté ouvert — l'appli installée surtout — ne se recharge pas de
+     lui-même : il jouerait des jours sur une vieille version. À chaque retour
+     sur le jeu ou sur l'accueil, et de loin en loin, on relit la version
+     publiée (là où elle est écrite, js/util.js) ; différente de celle qui
+     tourne, l'accueil propose la mise à jour. Jamais en file:// : rien à
+     relire à côté d'un fichier, et le navigateur le signalerait en rouge. */
+  const VEILLE_MAJ = 30 * 60 * 1000;
+  let versionEnLigne = null;
+
+  function chercherMiseAJour() {
+    if (location.protocol === 'file:' || versionEnLigne) return;
+    fetch('js/util.js', { cache: 'no-store' })
+      .then(r => (r.ok ? r.text() : ''))
+      .then(source => {
+        const trouve = source.match(/^MX\.VERSION = '([\d.]+)';/m);
+        if (!trouve || trouve[1] === MX.VERSION) return;
+        versionEnLigne = trouve[1];
+        $('#btn-update').textContent = `Mise à jour disponible — v${versionEnLigne}`;
+        $('#btn-update').hidden = false;
+        $('#version').hidden = true;
+      })
+      .catch(() => {});   // sans connexion : on y reviendra
+  }
+
+  /* Le navigateur garde chaque fichier du site quelques minutes : rechargée
+     telle quelle, la page reviendrait à moitié ancienne. On redemande donc
+     d'abord au réseau la page, ses scripts et sa feuille de style. */
+  function mettreAJour() {
+    const bouton = $('#btn-update');
+    bouton.disabled = true;
+    bouton.textContent = 'Mise à jour…';
+    const fichiers = [location.href, ...$$('script[src]').map(s => s.src), ...$$('link[rel="stylesheet"]').map(l => l.href)]
+      .filter(u => new URL(u).origin === location.origin);
+    Promise.all(fichiers.map(u => fetch(u, { cache: 'reload' })))
+      .catch(() => {})
+      .then(() => location.reload());
+  }
+
+  function surveillerMiseAJour() {
+    $('#btn-update').addEventListener('click', mettreAJour);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') chercherMiseAJour();
+    });
+    setInterval(chercherMiseAJour, VEILLE_MAJ);
+    chercherMiseAJour();
   }
 
   /* ─── L'appli installable, jouable sans connexion ───────────────────

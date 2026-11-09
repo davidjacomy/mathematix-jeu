@@ -8,7 +8,9 @@
       favorise les opérations faciles, parce qu'il en existe beaucoup plus
       (toutes les combinaisons avec 2, 5 ou 10 contre celles de 6, 7 et 8).
       On classe donc chaque fait par difficulté et on tire d'abord un
-      NIVEAU, puis un fait dans ce niveau.
+      NIVEAU, puis un fait dans ce niveau. Un niveau pèse selon le dosage
+      choisi et selon son nombre de faits, plafonné : ni un fait isolé sur
+      son niveau, ni un niveau pléthorique ne monopolise le tirage.
 
    2. Un énoncé ne se répète pas dans une partie. La seule répétition
       voulue est la révision d'un fait raté — et elle revient sous une
@@ -45,15 +47,23 @@ MX.Questions = (function () {
 
   const KINDS = ['result', 'hole', 'intruder', 'sign'];
 
-  /* Combien chaque NIVEAU pèse dans le tirage. Ce sont des poids par
-     niveau, pas par opération : le nombre d'opérations d'un niveau
-     n'influence donc pas son poids — « équilibré » donne le même poids
-     de départ à chaque niveau présent. */
+  /* Combien chaque fait d'un NIVEAU pèse dans le tirage, selon le dosage
+     choisi. Un niveau pèse ensuite ce poids fois son nombre de faits,
+     plafonné (cf. PLEIN). */
   const MIX_WEIGHT = {
     facile:    (d) => 1 / (1 + d * d * 0.1),
     equilibre: ()  => 1,
     dur:       (d) => 1 + d * d * 0.1,
   };
+
+  /* Un niveau compte pour son nombre de faits, jusqu'à ce plafond.
+     • En dessous, c'est ce qui empêche un fait SEUL sur son niveau de
+       revenir à chaque partie : à poids égal par niveau, 3 × 3 (seul de sa
+       difficulté) sortait quatre fois plus que 8 × 9 (huit à la sienne).
+     • Au-dessus, un niveau très fourni ne pèse pas davantage : sans plafond,
+       les centaines d'additions à retenue de « jusqu'à 100 » étoufferaient
+       les quelques calculs faciles, et « faciles d'abord » n'en poserait plus. */
+  const PLEIN = 8;
 
   /* ─── Les FORMES d'un fait ──────────────────────────────────────────
      Une forme est un énoncé affichable, identifié par le texte exact qui
@@ -225,7 +235,7 @@ MX.Questions = (function () {
         // Un niveau dont toutes les opérations sont déjà tombées pèse
         // beaucoup moins. Ce frein fait travailler des faits nouveaux sans
         // laisser « faciles d'abord » monopoliser le tirage avec ×10 et ×2.
-        const p = w(d) / (1 + min * 1.8);
+        const p = w(d) * Math.min(g.byDiff[d].length, PLEIN) / (1 + min * 1.8);
         total += p;
         cands.push({ p, liste });
       }

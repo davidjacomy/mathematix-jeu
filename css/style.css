@@ -1235,6 +1235,30 @@ button.slot { color: inherit; font: inherit; cursor: pointer; }
 .controls-help p { margin-top: 10px; }
 .keys-legend { font-family: system-ui, sans-serif; font-size: 14px; color: var(--chalk-dim); line-height: 1.7; }
 .keys-legend b { color: var(--chalk-warm); }
+/* La version, dans le coin bas de l'accueil : fixe par rapport à #stage, donc
+   en place même quand l'accueil défile, et absente des autres écrans. Le
+   cadre en bois et son rebord de craie passent au-dessus du jeu : le coin
+   s'en écarte, comme le bouton plein écran. */
+.version, .btn-update {
+  --coin-x: calc(clamp(10px, 1.3vw, 22px) + 8px);
+  --coin-y: calc(clamp(10px, 1.3vw, 22px) + clamp(6px, .9vh, 13px) + 4px);
+}
+.version {
+  position: fixed; right: var(--coin-x); bottom: var(--coin-y);
+  font-family: system-ui, sans-serif; font-size: 11px;
+  color: var(--chalk-dim); opacity: .6;
+  pointer-events: none;
+}
+/* Une version plus récente est en ligne : au même coin, mais qui se voit. */
+.btn-update {
+  position: fixed; right: var(--coin-x); bottom: var(--coin-y); z-index: 5;
+  font-family: system-ui, sans-serif; font-weight: 650; font-size: 14px;
+  color: var(--slate-0); background: var(--chalk-warm);
+  border: 0; border-radius: 999px;
+  padding: 8px 16px; min-height: 40px; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,.45);
+}
+.btn-update:disabled { opacity: .7; cursor: default; }
 .btn-pause {
   font-family: system-ui, sans-serif; font-weight: 650; font-size: 15px;
   color: var(--chalk); background: rgba(10,20,17,.5);
