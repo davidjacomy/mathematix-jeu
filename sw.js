@@ -34,10 +34,10 @@ self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(COEUR)).then(() => self.skipWaiting()));
 });
 
-/* Aucun ménage dans les autres caches : le domaine davidjacomy.github.io
-   est partagé par tous les sites publiés du compte, et leurs caches sont
-   dans le même tiroir que celui-ci. Un seul cache, jamais renommé : rien à
-   nettoyer. */
+/* Aucun ménage dans les autres caches : sur un domaine partagé avec
+   d'autres sites (davidjacomy.github.io, la première adresse du jeu), leurs
+   caches sont dans le même tiroir que celui-ci. Un seul cache, jamais
+   renommé : rien à nettoyer. */
 self.addEventListener('activate', (e) => {
   e.waitUntil(self.clients.claim());
 });
