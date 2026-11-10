@@ -12,9 +12,16 @@ MX.Audio = (function () {
   const synth = window.speechSynthesis || null;
 
   /* ─── Choix de la voix ──────────────────────────────────────────── */
-  // Prénoms masculins courants des voix TTS françaises : un maître qui
-  // hurle sonne plus juste avec une voix d'homme.
-  const MALE_HINTS = /paul|thomas|nicolas|henri|guillaume|mathieu|claude|antoine|remy|rémy|male/i;
+  // Prénoms masculins des voix TTS françaises (Windows et Edge, Apple) : un
+  // maître qui hurle sonne plus juste avec une voix d'homme. Mots entiers :
+  // « female » contient « male ».
+  const MALE_HINTS = /\b(paul|thomas|daniel|jacques|nicolas|henri|guillaume|mathieu|claude|antoine|r[eé]my|alain|j[eé]r[oô]me|maurice|yves|lucien|jean|thierry|g[eé]rard|fabrice|male|homme|masculin)\b/i;
+  /* Une voix dont le nom ne dit pas qu'elle est d'homme est rendue plus
+     grave. C'est le seul levier là où le nom ne dit que la langue (Chrome
+     sur Android : « français France ») ou quand le système n'a installé
+     qu'une voix de femme. Le plancher garde le rappel du calcul intelligible. */
+  const GRAVE = 0.65, PITCH_MIN = 0.35;
+  let grave = false;          // la voix retenue est-elle à rendre plus grave ?
 
   function pickVoice() {
     if (!synth) return;
@@ -24,8 +31,10 @@ MX.Audio = (function () {
     // Les voix locales sont plus réactives que les voix réseau : on les préfère.
     const local = fr.filter(v => v.localService);
     const pref = local.length ? local : fr;
-    voice = pref.find(v => MALE_HINTS.test(v.name)) || pref[0] || null;
+    const hommes = pref.filter(v => MALE_HINTS.test(v.name));
+    voice = hommes.find(v => /^fr[-_]fr/i.test(v.lang)) || hommes[0] || pref[0] || null;
     voiceReady = !!voice;
+    grave = voiceReady && !hommes.length;
   }
   if (synth) {
     pickVoice();
@@ -36,7 +45,7 @@ MX.Audio = (function () {
   function voiceStatus() {
     if (!synth) return 'indisponible sur ce navigateur';
     if (!voiceReady) return 'aucune voix française trouvée';
-    return voice.name;
+    return grave ? voice.name + ' (rendue plus grave)' : voice.name;
   }
 
   /* ─── Initialisation (à appeler sur un vrai clic / appui) ────────── */
@@ -73,7 +82,8 @@ MX.Audio = (function () {
     try {
       const u = new window.SpeechSynthesisUtterance(text);
       const m = MOODS[mood] || MOODS.calm;
-      u.rate = m.rate; u.pitch = m.pitch; u.volume = m.volume;
+      u.rate = m.rate; u.volume = m.volume;
+      u.pitch = grave ? Math.max(PITCH_MIN, m.pitch * GRAVE) : m.pitch;
       u.lang = 'fr-FR';
       u.voice = voice;
       u.addEventListener('end', finish);
